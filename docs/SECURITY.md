@@ -26,6 +26,17 @@ so.
 - **Sign-out** deletes the session row and clears both cookies.
 - **Rate limits** on sign-in start, wallet challenge/verify, username checks, claim
   attempts, claim-link disclosure and settlement checks.
+- **Least scope.** The X flow asks for `users.read` and nothing more, because the
+  handle from `users/me` is the only X field Blind reads; `X_SCOPES` exists to
+  override that deliberately, not to widen it by default. Google asks for
+  `openid email profile`. Both are PKCE (`S256`).
+- **The start redirect is `no-store`.** The 302 that hands the browser to a
+  provider carries a one-time `state` and the PKCE challenge, so it is marked
+  uncacheable rather than left for a shared cache to keep a copy.
+- **Confidential vs public X clients are explicit.** X token requests use HTTP
+  Basic when a client secret is set, and PKCE-only when `X_USE_PKCE=1` is set —
+  so a client of either type can be configured without a code change, and neither
+  is guessed at runtime.
 
 ## Sessions
 
@@ -150,6 +161,12 @@ design reflects it:
    itself defeat an injection that already runs same-origin. A nonce-based policy
    generated in middleware is the next step if Blind ever adds a third-party
    script or an HTML sink.
+
+   Development builds additionally allow `'unsafe-eval'`, because React Refresh
+   evaluates code at runtime; `next.config.ts` adds it only when
+   `NODE_ENV !== "production"`. A deployment can be checked with
+   `curl -sI $APP_URL | grep -i content-security-policy` — if `unsafe-eval` is
+   in the answer, that is not a production build.
 4. **`audit_log` has no retention policy** and no tamper-evidence beyond being
    append-only by convention.
 5. **Rate limiting is per-instance-fixed-window**, not a distributed token bucket;

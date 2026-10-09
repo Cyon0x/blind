@@ -35,6 +35,10 @@ back with a mechanism is listed as residual risk.
    theirs by guessing identifiers or changing a URL.
 8. **A compromised user account.** Someone who gets into a user's Blind session.
 9. **The chain itself.** Anyone reading the public ledger.
+10. **The chain evidence source.** On testnet this is the Beldex testnet
+    explorer (`https://testnet.beldex.dev`), because Beldex publishes no public
+    testnet daemon; on mainnet it is whatever `BDX_DAEMON_URL` points at. It sees
+    every transaction hash Blind checks and the originating IP of the check.
 
 ## What each party can learn
 
@@ -46,6 +50,25 @@ back with a mechanism is listed as residual risk.
 | Blind server | ✓ | ✓ | via OAuth for signed-in users | via OAuth for signed-in users | ✗ | ✗ (until a claim records a payout destination) |
 | Escrow operator | ✓ | ✓ | ✗ | ✗ | ✗ | the payout destination |
 | Chain observer | ✓ (Beldex-style) | ✗ | ✗ (see below) | ✗ | ✗ | the payout destination |
+| Chain evidence source (explorer or daemon) | ✓ (Beldex-style) | ✗ | ✗ | ✗ | ✗ | the payout destination; plus *which* transactions Blind asked about, correlated with Blind's requests |
+
+### The evidence source, specifically
+
+Blind has to ask *someone* whether a transaction is mined. That someone learns
+the transaction hashes Blind cares about, when it asked, and — unless Blind is
+proxied — roughly who asked. Mitigations that are actually in force:
+
+- Blind asks **only** about hashes it has a payment for, and never about an
+  address. Address lookups would leak the social graph; there are none.
+- Evidence from an explorer is stored and displayed as `untrusted` with its
+  source named, so a receipt never implies a node vouched for it.
+- A daemon, self-hosted, removes the third party entirely: set `BDX_DAEMON_URL`
+  and the explorer is not used at all (see `chainSource()`).
+
+Residual risk: whoever answers the question knows a payment exists and when it
+was checked, and could in principle lie about confirmations. Blind cannot detect
+a lying source; it can only refuse to describe one as authoritative, which is why
+the field is on the receipt.
 
 "Amount" on chain is Beldex's business, not Blind's: Blind posts no amount,
 description or reference to the chain and stores nothing on it. A Beldex
@@ -135,6 +158,12 @@ would be dishonest for it to do so silently.
 
 ## What Blind does not claim
 
+- **Testnet is not a privacy rehearsal.** Blind is deployed against Beldex
+  testnet, where the coins are worthless and the user set is tiny — a handful of
+  addresses in an anonymity set of a few hundred tells you far less about the
+  mechanism than mainnet does. Testnet says the plumbing works; it does not
+  evidence the privacy properties at mainnet scale, and nothing here should be
+  read as a mainnet privacy result.
 - It does not make payments **untraceable**. Beldex's protocol does its part; Blind
   adds no mixing, no batching, no decoys and no anonymity set, and the escrow
   operator can correlate deposits with payouts by time and amount.

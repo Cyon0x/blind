@@ -144,12 +144,23 @@ export function xAuthUrl(opts: { redirectUri: string; state: string; challenge: 
     response_type: "code",
     client_id: process.env.X_CLIENT_ID as string,
     redirect_uri: opts.redirectUri,
-    scope: "users.read tweet.read",
+    scope: xScopes(),
     state: opts.state,
     code_challenge: opts.challenge,
     code_challenge_method: "S256",
   });
   return `https://twitter.com/i/oauth2/authorize?${params.toString()}`;
+}
+
+/**
+ * Blind reads exactly one X field: the handle from `users/me`. The default scope
+ * is therefore `users.read` alone — asking for anything else would be collecting
+ * permission it has no use for. `X_SCOPES` exists because a given X app may not
+ * be allowed to grant even that until its user-authentication settings are set.
+ */
+export function xScopes(): string {
+  const configured = process.env.X_SCOPES;
+  return configured && configured.trim() ? configured.trim() : "users.read";
 }
 
 export type XIdentity = {
@@ -174,7 +185,9 @@ export async function exchangeXCode(code: string, verifier: string, redirectUri:
     body,
   };
   // Confidential clients authenticate with Basic; public clients use PKCE only.
-  if (process.env.X_CLIENT_SECRET) {
+  // X_USE_PKCE=1 forces the public-client path even when a secret is present,
+  // which is what to set if the app was created as a public/native client.
+  if (process.env.X_CLIENT_SECRET && process.env.X_USE_PKCE !== "1") {
     const basic = Buffer.from(`${process.env.X_CLIENT_ID}:${process.env.X_CLIENT_SECRET}`).toString("base64");
     init.headers = { ...(init.headers as Record<string, string>), authorization: `Basic ${basic}` };
   }

@@ -1,5 +1,6 @@
 import { beldexConfig } from "./beldex/config";
-import { BdxDaemon, type TransactionEvidence } from "./beldex/daemon";
+import { chainReader } from "./beldex/chain";
+import type { TransactionEvidence } from "./beldex/daemon";
 import { decodeAddress } from "./beldex/address";
 import {
   EscrowUnavailable,
@@ -264,11 +265,11 @@ export async function refreshFunding(payment: PaymentRow): Promise<FundingRefres
   // Deepen the record even before the threshold is met, so the UI can show the
   // honest "seen, 2 of 10 confirmations" state.
   let confirmations = deposit.confirmations;
-  const daemon = BdxDaemon.fromEnv();
-  if (daemon) {
+  const chain = chainReader();
+  if (chain) {
     try {
-      const chain = await daemon.getTransaction(deposit.txHash);
-      if (chain.found) confirmations = chain.confirmations;
+      const evidence = await chain.getTransaction(deposit.txHash);
+      if (evidence.found) confirmations = evidence.confirmations;
     } catch {
       /* keep the wallet's count */
     }
@@ -537,10 +538,10 @@ export async function refreshSettlement(payment: PaymentRow): Promise<Settlement
   }
 
   let evidence: TransactionEvidence | null = null;
-  const daemon = BdxDaemon.fromEnv();
-  if (daemon) {
+  const chain = chainReader();
+  if (chain) {
     try {
-      evidence = await daemon.getTransaction(payment.payout_tx_hash);
+      evidence = await chain.getTransaction(payment.payout_tx_hash);
     } catch {
       evidence = null;
     }
@@ -757,10 +758,10 @@ export async function ensureReceipts(payment: PaymentRow): Promise<void> {
 }
 
 async function safeEvidence(txHash: string): Promise<TransactionEvidence | null> {
-  const daemon = BdxDaemon.fromEnv();
-  if (!daemon) return null;
+  const chain = chainReader();
+  if (!chain) return null;
   try {
-    return await daemon.getTransaction(txHash);
+    return await chain.getTransaction(txHash);
   } catch {
     return null;
   }

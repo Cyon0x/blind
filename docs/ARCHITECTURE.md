@@ -18,6 +18,12 @@ browser ── extension (beldex wallet)          [user's keys, never sent anywh
    └── beldex-wallet-rpc  ── the escrow signer (separate host, separate keys)
 ```
 
+Chain evidence has two interchangeable backends behind `chainReader()`: a daemon
+when `BDX_DAEMON_URL` is set, otherwise an explorer's JSON API — on Beldex
+testnet, the official testnet explorer, because Beldex publishes no public
+testnet daemon. Explorer evidence is always marked untrusted and names its
+source. Nothing in that path can move money.
+
 Four rules hold across the whole codebase:
 
 1. **The database is never the authority on settlement.** Chain and wallet
@@ -132,6 +138,8 @@ the serialised JSON — so a leak in any field fails the suite.
 | `units.ts` | Atomic ↔ display BDX (9 decimals). |
 | `sig.ts` | `SigV1` signature verification (Schnorr over keccak-256, Monero's `sc_mulsub`). |
 | `daemon.ts` | Read-only JSON-RPC: `get_info`, `get_transactions`, `get_block_header_by_height`, `get_fee_estimate`. |
+| `explorer-api.ts` | The same read-only contract over an explorer's JSON API (`/api/networkinfo`, `/api/transaction/<hash>`, `/api/block/<height>`), for networks with no daemon to point at. Always reports `untrusted: true` and its source. |
+| `chain.ts` | `chainReader()` / `chainSource()`: picks the daemon when configured, otherwise the explorer. The single answer to "what does the chain say?". |
 | `wallet-rpc.ts` | `beldex-wallet-rpc` client: addresses, balances, transfers, bulk payments. |
 | `escrow.ts` | The escrow as domain operations: allocate a deposit target, find a deposit, send a payout, reconcile an ambiguous send, report health. |
 | `config.ts` | Every endpoint and threshold, from the environment. |
@@ -147,9 +155,9 @@ See [BELDEX_INTEGRATION.md](BELDEX_INTEGRATION.md).
 Two properties are enforced there and nowhere else:
 
 - **A status only advances on evidence.** Funding comes from the escrow wallet
-  (deepened by the daemon); settlement comes from the daemon and/or the escrow
-  wallet; a claim is authorised by the claim secret compared *inside* the state
-  transition.
+  (deepened by the chain reader); settlement comes from the chain reader and/or
+  the escrow wallet; a claim is authorised by the claim secret compared *inside*
+  the state transition.
 - **A payout is attempted once.** `beginPayoutOperation` is the lock; a crash
   mid-send is resolved by `reconcileOutgoing` (find the transfer that may already
   exist) and never by sending again. An unresolved operation is parked as

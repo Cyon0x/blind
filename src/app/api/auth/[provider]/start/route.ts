@@ -50,6 +50,11 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ provide
       provider === "google"
         ? googleAuthUrl({ redirectUri, state, challenge })
         : xAuthUrl({ redirectUri, state, challenge });
-    return NextResponse.redirect(url, { status: 302 });
+    // The redirect carries a one-time `state` and code challenge; keep them out
+    // of any shared cache rather than letting a CDN store one.
+    return NextResponse.redirect(url, {
+      status: 302,
+      headers: { "cache-control": "no-store, max-age=0" },
+    });
   });
 }

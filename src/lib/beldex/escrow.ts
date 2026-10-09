@@ -1,5 +1,5 @@
 import { beldexConfig, ESCROW_WALLET_NAME } from "./config";
-import { BdxDaemon } from "./daemon";
+import { chainReader } from "./chain";
 import { BdxWalletRpc, type PayoutPriority, type SubaddressTransfer } from "./wallet-rpc";
 
 /**
@@ -259,10 +259,10 @@ export async function escrowHealth(): Promise<EscrowHealth> {
     health.detail = `wallet RPC answered but no wallet is open: ${error instanceof Error ? error.message : "unknown"}`;
     return health;
   }
-  const daemon = BdxDaemon.fromEnv();
-  if (daemon) {
+  const chain = chainReader();
+  if (chain) {
     try {
-      await daemon.getInfo();
+      await chain.getInfo();
       health.daemonReachable = true;
     } catch {
       health.daemonReachable = false;

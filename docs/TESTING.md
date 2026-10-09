@@ -3,7 +3,7 @@
 ## Running the suite
 
 ```bash
-npm test              # vitest, 58 tests, no external services needed
+npm test              # vitest, 82 tests, no external services needed
 npm run test:watch
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint
@@ -13,6 +13,12 @@ npm run build         # production build (needs network for next/font on first r
 The database tests run a **real embedded Postgres** (PGlite) with the real
 migrations applied, so table constraints, conditional `UPDATE`s and unique indexes
 are exercised rather than mocked. Each test file gets its own data directory.
+
+Tests never touch a deployed database. `db.ts` refuses a non-loopback
+`DATABASE_URL` outside production (`ALLOW_REMOTE_DB_IN_DEV=1` overrides), which is
+pinned by `tests/database-guard.test.ts` — `vercel env pull` putting a production
+URL into `.env.local` is otherwise a silent way for a dev run to write to real
+data.
 
 ## What is covered
 
@@ -45,6 +51,21 @@ Being explicit about this matters more than a green check mark.
 
 ## Manual verification that *has* been performed
 
+- **Live testnet chain evidence** (`npm run bdx:doctor`, `BDX_NETWORK=testnet`,
+  2026-10-09): `chain (explorer): get_info` → height 4259754, `nettype: testnet`;
+  `get_height`; `get_block_header_by_height(0)` → hash `919ef94bcb799632…`;
+  `get_fee_estimate` → `skip`, because the explorer publishes none. The same
+  adapter was checked against one real transaction
+  (`ebbb80ddcd020a8ec1255054d13f8e1cea9bed5d535b18bb782f2e8e1f1a4f88`, block
+  4259725) and returned 23 confirmations plus the block hash for reorg checks.
+  This is what `/api/health` reports as `"source": "explorer"`.
+- **Live Google OAuth**: following `/api/auth/google/start` reaches Google's real
+  sign-in page ("Sign in to continue to blind-pi-six.vercel.app") with no
+  `redirect_uri_mismatch`, so the client id and callback are accepted. X's
+  authorize endpoint builds the right URL (client id, callback, PKCE S256,
+  `users.read`) but returns HTTP 403 to an automated browser, so **the X flow has
+  not been completed end to end** — X blocks headless clients and only a human
+  click-through can confirm its callback registration.
 - **Live mainnet daemon** (`npm run bdx:doctor` with
   `BDX_DAEMON_URL=http://publicnode1.rpcnode.stream:29095/json_rpc`, 2026-10-09):
   `get_info` → height 5822269; `get_height`; `get_block_header_by_height(0)` →
@@ -60,12 +81,22 @@ Being explicit about this matters more than a green check mark.
 
 ## Setting up a real testnet workflow
 
-This is the workflow to run before trusting the escrow path with value. It needs a
-Linux (or macOS-arm) host, because that is what `beldex-wallet-rpc` ships for.
+Two halves. The **read** half works today with no setup: Blind is already on
+testnet and reads settlement evidence from the official testnet explorer, which
+the doctor verifies in one command (`BDX_NETWORK=testnet npm run bdx:doctor`).
+
+The **escrow** half is the workflow below. It needs a Linux (or macOS-arm) host,
+because that is what `beldex-wallet-rpc` ships for, and a testnet daemon, because
+Beldex publishes none publicly. That is what preserves Blind's custody design:
+the signer must be a process you run and can watch, never something a Vercel
+function holds.
 
 1. **Get a node and a wallet.**
    ```bash
-   beldex-wallet-rpc --stagenet --rpc-bind-port 29092 \
+   # A testnet daemon must be reachable too — Beldex publishes no public one.
+   beldexd --testnet --rpc-bind-ip 127.0.0.1 --rpc-bind-port <daemon rpc port>
+
+   beldex-wallet-rpc --testnet --rpc-bind-port 29092 \
      --wallet-dir /var/lib/blind/escrow --rpc-login user:pass \
      --disable-rpc-login=false --prompt-for-password
    ```
@@ -76,7 +107,8 @@ Linux (or macOS-arm) host, because that is what `beldex-wallet-rpc` ships for.
    BDX_WALLET_RPC_URL=http://127.0.0.1:29092/json_rpc
    BDX_WALLET_RPC_USER=user
    BDX_WALLET_RPC_PASSWORD=pass
-   BDX_DAEMON_URL=http://127.0.0.1:29081/json_rpc
+   # Setting this replaces the explorer with your own node.
+   BDX_DAEMON_URL=http://127.0.0.1:<daemon rpc port>/json_rpc
    BDX_CONFIRMATIONS=10
    BDX_CLAIM_KEY=$(openssl rand -hex 32)
    APP_URL=http://localhost:3000

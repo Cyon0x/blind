@@ -1,7 +1,7 @@
 import { handle, json } from "@/lib/api";
 import { beldexStatus, beldexConfig } from "@/lib/beldex/config";
 import { escrowHealth } from "@/lib/beldex/escrow";
-import { BdxDaemon } from "@/lib/beldex/daemon";
+import { chainReader, chainSource } from "@/lib/beldex/chain";
 import { databaseConfigured, usingEmbeddedDatabase } from "@/lib/db";
 import { providerStatus } from "@/lib/auth";
 import { claimSealingConfigured } from "@/lib/seal";
@@ -16,16 +16,18 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   return handle(async () => {
     const config = beldexConfig();
-    const daemon = BdxDaemon.fromEnv();
-    let chain: { height: number; nettype: string; untrusted: boolean } | { error: string } = {
-      error: "BDX_DAEMON_URL is not set",
+    const reader = chainReader();
+    const source = chainSource();
+    let chain: { height: number; nettype: string; untrusted: boolean; source: string } | { error: string; source: string | null } = {
+      error: "no daemon or explorer is configured",
+      source,
     };
-    if (daemon) {
+    if (reader && source) {
       try {
-        const info = await daemon.getInfo();
-        chain = { height: info.height, nettype: info.nettype, untrusted: info.untrusted };
+        const info = await reader.getInfo();
+        chain = { height: info.height, nettype: info.nettype, untrusted: info.untrusted, source };
       } catch (error) {
-        chain = { error: error instanceof Error ? error.message : "daemon unreachable" };
+        chain = { error: error instanceof Error ? error.message : "unreachable", source };
       }
     }
     const escrow = await escrowHealth();

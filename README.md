@@ -37,7 +37,8 @@ in production, embedded Postgres for development and tests); hand-rolled OAuth w
 PKCE for Google and X; the official `@bdxi/web3js` browser wallet SDK for
 user-authorised sends; `beldex-wallet-rpc` as a separate escrow signer that the web
 app can ask to allocate deposit destinations and to pay out to a claim's
-destination; and a Beldex daemon for chain evidence. See
+destination; and a Beldex daemon — or an explorer when there is no daemon — for
+chain evidence. See
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## The privacy model, in one paragraph
@@ -57,7 +58,9 @@ that says what Blind *cannot* do.
 - Node.js 20+ (developed against Node 24).
 - A Postgres database for production (Blind runs an embedded Postgres locally, so
   you need nothing for local development).
-- A Beldex daemon reachable over HTTP for settlement evidence.
+- A Beldex daemon reachable over HTTP for settlement evidence, or an explorer's
+  JSON API if you have no daemon (Blind defaults to Beldex's official testnet
+  explorer on testnet, which is what the live deployment uses).
 - `beldex-wallet-rpc` with a wallet for anything that holds or releases funds.
 
 ## Install and run
@@ -71,6 +74,17 @@ npm run dev                       # http://localhost:3000
 
 `npm run dev` uses webpack (`next dev --webpack`), as does `npm run build`.
 
+Local development runs the embedded Postgres, so it needs no database to be set
+up — and it must not be pointed at the deployed one. `vercel env pull` writes a
+production `DATABASE_URL` into `.env.local`, which Next loads automatically, so
+`db.ts` refuses to run against a non-loopback database outside production:
+
+```
+Refusing to use the remote database "ep-…aws.neon.tech" from a development process.
+Remove DATABASE_URL from .env.local to use the embedded Postgres, or set
+ALLOW_REMOTE_DB_IN_DEV=1 if you really mean to point development at it.
+```
+
 ## Commands
 
 ```bash
@@ -79,7 +93,7 @@ npm run build          # production build
 npm start              # serve the production build
 npm run lint           # eslint
 npm run typecheck      # tsc --noEmit
-npm test               # vitest (58 tests)
+npm test               # vitest (82 tests)
 npm run db:migrate     # apply db/migrations to DATABASE_URL, or -- --embedded
 npm run db:pglite      # prepare the embedded development database
 npm run bdx:doctor     # check every Beldex operation against the live endpoints
@@ -105,18 +119,28 @@ lists every variable with what it buys you. The four that matter most:
 - **Repository:** https://github.com/Cyon0x/blind
 - **Database:** Neon Postgres, provisioned through the Vercel integration and
   migrated with `npm run db:migrate`.
-- **Chain read:** Beldex mainnet daemon. `GET /api/health` reports the live height.
+- **Network:** Beldex **testnet**. `GET /api/health` reports the live testnet
+  height and which source answered.
+- **Chain read:** the official testnet explorer's JSON API
+  (`https://testnet.beldex.dev`), because Beldex publishes no public testnet
+  daemon. Evidence from it is marked untrusted and names its source; set
+  `BDX_DAEMON_URL` to your own node and the explorer is not used at all.
 - **Configured:** `APP_URL`, `AUTH_SECRET`, `DATABASE_URL`, `BDX_CLAIM_KEY`,
-  `BDX_NETWORK`, `BDX_DAEMON_URL`, `BDX_EXPLORER_URL`, `BDX_CONFIRMATIONS`.
-- **Still missing on the deployment:** Google and X client ids/secrets, and the
-  escrow signer (see below). Until these exist the sign-in page and the pay flow
-  say so rather than pretending.
+  `BDX_NETWORK=testnet`, `BDX_EXPLORER_API_URL`, `BDX_CONFIRMATIONS`,
+  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `X_CLIENT_ID`, `X_CLIENT_SECRET`.
+- **Google sign-in is verified live** (the flow reaches Google's real account
+  page for this client). **X sign-in is not yet proven end to end** — X returns
+  403 to automated browsers, so its callback registration needs one human
+  click-through. The **escrow signer** is still missing (see below); until it
+  exists, Blind Pay says `escrow_unavailable` rather than pretending.
 
 ### From scratch
 
 1. Push the repository and import it into Vercel (or run `vercel`).
 2. Set the environment variables from `.env.example`. At minimum: `APP_URL`,
-   `AUTH_SECRET`, `DATABASE_URL_POOLED`, `BDX_DAEMON_URL`, `BDX_CLAIM_KEY`.
+   `AUTH_SECRET`, `DATABASE_URL_POOLED`, `BDX_CLAIM_KEY`. `BDX_NETWORK` defaults
+   to `testnet`; `BDX_DAEMON_URL` is optional, and without it Blind reads chain
+   evidence from the explorer named by `BDX_EXPLORER_API_URL`.
 3. Run `npm run db:migrate` against the production database.
 4. Add OAuth credentials, with callbacks `${APP_URL}/api/auth/google/callback` and
    `${APP_URL}/api/auth/x/callback`.
@@ -139,12 +163,14 @@ lists every variable with what it buys you. The four that matter most:
   must run on a Linux host. Blind Pay therefore reports `escrow_unavailable` on
   this deployment, and the payment lifecycle beyond deposit detection is
   **untested against a real wallet** until that host exists.
-- **Testnet is unpublished.** Beldex publishes no public testnet endpoints, so the
-  documented testnet workflow in [docs/TESTING.md](docs/TESTING.md) needs a
-  self-hosted testnet node.
-- **Google and X credentials are pending.** The flows are implemented and the
-  callback handling is tested, but sign-in cannot complete until client ids and
-  secrets are supplied.
+- **Testnet has no public daemon.** Beldex publishes a testnet chain and the
+  explorer that reads it, but no testnet daemon. Blind therefore takes settlement
+  evidence from that explorer (untrusted, source named) and swaps to a daemon the
+  moment you set `BDX_DAEMON_URL`. The escrow workflow in
+  [docs/TESTING.md](docs/TESTING.md) still needs a testnet node you run.
+- **X sign-in awaits a click-through.** The flow, scopes and PKCE are correct and
+  the authorize URL is verified, but X answers automated browsers with 403, so
+  the round trip has only been proven for Google.
 - **Settlement is only as good as the node.** Blind reads the daemon you point it
   at and reports whether that node is a bootstrap (untrusted) node.
 - Not yet implemented: email/push notifications (in-app only), multi-asset support

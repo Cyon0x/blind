@@ -12,9 +12,9 @@
  *
  * Nothing secret is printed: addresses and heights are public, keys are not.
  */
-import { beldexConfig, escrowConfigured, daemonConfigured, ESCROW_WALLET_NAME } from "../../src/lib/beldex/config.ts";
+import { beldexConfig, escrowConfigured, ESCROW_WALLET_NAME } from "../../src/lib/beldex/config.ts";
 import { BdxWalletRpc } from "../../src/lib/beldex/wallet-rpc.ts";
-import { BdxDaemon } from "../../src/lib/beldex/daemon.ts";
+import { chainReader, chainSource } from "../../src/lib/beldex/chain.ts";
 import { decodeAddress, encodeAddress } from "../../src/lib/beldex/address.ts";
 import { NETTYPE_PREFIXES } from "../../src/lib/beldex/nettype.ts";
 
@@ -36,7 +36,8 @@ async function check(name, fn, { optional = false } = {}) {
 const config = beldexConfig();
 console.log(`Blind · Beldex doctor`);
 console.log(`network: ${config.nettype} · confirmations for settlement: ${config.confirmationsForSettlement}`);
-console.log(`daemon: ${config.daemonUrl ? "configured" : "not set"} · escrow wallet: ${config.walletRpcUrl ? "configured" : "not set"}\n`);
+console.log(`daemon: ${config.daemonUrl ? "configured" : "not set"} · escrow wallet: ${config.walletRpcUrl ? "configured" : "not set"}`);
+console.log(`chain evidence: ${chainSource() ?? "none"}${chainSource() === "explorer" ? ` (${config.explorerApiUrl})` : ""}\n`);
 
 /* ---------------------------------------------------------------- addresses */
 
@@ -59,31 +60,32 @@ await check("mainnet and testnet addresses are the documented lengths", () => {
   return "97 / 95";
 });
 
-/* ------------------------------------------------------------------- daemon */
+/* ------------------------------------------------------------ chain evidence */
 
-if (!daemonConfigured()) {
-  add("daemon: get_info", "skip", "BDX_DAEMON_URL is not set, so Blind cannot verify settlement");
-  add("daemon: get_height", "skip", "BDX_DAEMON_URL is not set");
+const source = chainSource();
+if (!source) {
+  add("chain: get_info", "skip", "neither BDX_DAEMON_URL nor BDX_EXPLORER_API_URL is set");
+  add("chain: get_height", "skip", "no chain evidence source configured");
 } else {
-  const daemon = BdxDaemon.fromEnv();
-  await check("daemon: get_info", async () => {
-    const info = await daemon.getInfo();
+  const chain = chainReader();
+  await check(`chain (${source}): get_info`, async () => {
+    const info = await chain.getInfo();
     return `height ${info.height}, ${info.status}${info.untrusted ? ", bootstrap node" : ""}`;
   });
-  await check("daemon: get_height", async () => `height ${await daemon.getHeight()}`);
+  await check(`chain (${source}): get_height`, async () => `height ${await chain.getHeight()}`);
   await check(
-    "daemon: get_block_header_by_height (reorg checks)",
+    `chain (${source}): get_block_header_by_height (reorg checks)`,
     async () => {
-      const header = await daemon.getBlockHeaderByHeight(0);
+      const header = await chain.getBlockHeaderByHeight(0);
       if (!header) throw new Error("no genesis header returned");
       return `hash ${String(header.hash ?? "").slice(0, 16)}…`;
     },
     { optional: true }
   );
   await check(
-    "daemon: get_fee_estimate",
+    `chain (${source}): get_fee_estimate`,
     async () => {
-      const fee = await daemon.getFeeEstimate();
+      const fee = await chain.getFeeEstimate();
       if (!fee) throw new Error("no fee estimate returned");
       return `${fee.feePerByte} atomic per byte`;
     },

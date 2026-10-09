@@ -3,19 +3,46 @@
 What Blind actually calls, what it verified, and what Beldex cannot do.
 
 Everything below was checked against primary sources — the official `@bdxi`
-packages on npm, Beldex's own WASM wallet core, and a live mainnet node — rather
-than assumed. Where a fact could only be established by running something, the
-command that establishes it is included.
+packages on npm, Beldex's own WASM wallet core, the live Beldex testnet explorer
+and a live mainnet node — rather than assumed. Where a fact could only be
+established by running something, the command that establishes it is included.
 
 ## Supported network and assets
 
-- **Network**: `mainnet` by default; `testnet` and `devnet` are supported by the
-  address codec and the escrow path. `BDX_NETWORK` selects it and everything else
-  follows.
+- **Network**: **testnet**. Blind is built and deployed against Beldex testnet,
+  and `beldexConfig()` defaults to `testnet` when `BDX_NETWORK` is unset so an
+  unconfigured deployment fails safe instead of quietly touching real value.
+  `mainnet` and `devnet` are supported by the address codec and the escrow path;
+  `BDX_NETWORK` selects one and everything else follows — address prefixes,
+  explorer links and the network the escrow wallet must be on.
 - **Asset**: BDX only. Blind's payment forms do not offer a second asset, because
   nothing else can actually be moved by this integration. There are no
   USD-denominated payments, so there is no implied conversion rate and no
   volatility claim anywhere in the UI.
+
+### Why testnet needs an explorer
+
+Beldex publishes a **testnet chain and testnet explorer but no public testnet
+daemon**. A daemon is the only thing that can answer "is this transaction mined,
+and how deep?", which is what settlement depends on, so on testnet Blind reads
+that answer from the official explorer's JSON API
+(`https://testnet.beldex.dev`) through `src/lib/beldex/explorer-api.ts`.
+
+Selection is one function, `chainReader()` in `src/lib/beldex/chain.ts`:
+`BDX_DAEMON_URL` wins when set, otherwise `BDX_EXPLORER_API_URL` (defaulting to
+the testnet explorer on testnet) answers. Evidence from an explorer is always
+marked `untrusted: true` and carries `source: "explorer <url>"`, so a receipt can
+name the third party that vouched for it. Host a testnet daemon and set
+`BDX_DAEMON_URL` to remove the third party entirely.
+
+Two honest gaps between the two backends, both erring toward caution:
+
+| | daemon | explorer |
+| --- | --- | --- |
+| confirmations, block hash, fee, size, unlock time | yes | yes |
+| mempool (a just-broadcast tx reads as "not found") | yes | no |
+| fee estimate | usually | never (`getFeeEstimate()` returns null) |
+| fee for a coinbase tx as reported | `0` | `0` |
 
 ## Dependencies
 
@@ -88,24 +115,38 @@ Two independent sources, and the app reports which answered:
 - **The daemon** (`get_transactions`, `get_info`,
   `get_block_header_by_height`) — it knows whether the chain in the chain.
 
+When no daemon is reachable, the explorer API answers the same questions over
+`/api/networkinfo`, `/api/transaction/<hash>` and `/api/block/<height>`; the
+mapping is asserted in `tests/explorer-api.test.ts` against responses captured
+from the live testnet explorer, and an unreachable explorer produces a *reason*
+on the evidence rather than an exception.
+
 `get_transactions` does not return a confirmation count, so Blind derives it as
 `height − block_height + 1` and re-reads the block header so a reorg shows up as a
 changed block hash. The response's `untrusted` flag is recorded: a receipt issued
 from a bootstrap node says so.
 
-**Verified live** (`npm run bdx:doctor` against
-`http://publicnode1.rpcnode.stream:29095/json_rpc` on 2026-10-09):
+**Verified live**, testnet, `npm run bdx:doctor` on 2026-10-09:
 
 ```
-  ok daemon: get_info — height 5822269, OK
-  ok daemon: get_height — height 5822269
-  ok daemon: get_block_header_by_height (reorg checks) — hash 6ea477622339f61c…
-  ok daemon: get_fee_estimate — 6666 atomic per byte
+network: testnet · confirmations for settlement: 10
+daemon: not set · escrow wallet: not set
+chain evidence: explorer (https://testnet.beldex.dev)
+
+  ok address codec round-trips on this network — 95 characters, prefix 53
+  ok mainnet and testnet addresses are the documented lengths — 97 / 95
+  ok chain (explorer): get_info — height 4259754, OK, bootstrap node
+  ok chain (explorer): get_height — height 4259754
+  ok chain (explorer): get_block_header_by_height (reorg checks) — hash 919ef94bcb799632…
+skip chain (explorer): get_fee_estimate — no fee estimate returned
 ```
 
-Note that this public node answers **plain HTTP only**; HTTPS fails its TLS
-handshake. Point `BDX_DAEMON_URL` at your own node for production, and treat any
-answer from a bootstrap node as corroboration rather than proof.
+Against mainnet the same doctor was run earlier with a public daemon
+(`http://publicnode1.rpcnode.stream:29095/json_rpc`, height 5822269, fee 6666
+atomic per byte) — that path is kept working, it is simply not what Blind points
+at now. Note that this public mainnet node answers **plain HTTP only**; HTTPS
+fails its TLS handshake. Point `BDX_DAEMON_URL` at your own node, and treat any
+answer from a bootstrap node or an explorer as corroboration rather than proof.
 
 ## Escrow (beldex-wallet-rpc)
 

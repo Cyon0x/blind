@@ -23,6 +23,36 @@ const url = process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL;
 export const databaseConfigured = Boolean(url);
 export const usingEmbeddedDatabase = !url;
 
+/**
+ * A development process must not be able to write to the deployed database.
+ * `vercel env pull` drops a production DATABASE_URL into `.env.local`, which
+ * Next loads automatically, so the mistake is one command away and completely
+ * silent. Refuse it, and say how to proceed deliberately.
+ */
+export class RemoteDatabaseInDevelopment extends Error {
+  constructor(host: string) {
+    super(
+      `Refusing to use the remote database "${host}" from a development process. ` +
+        `Remove DATABASE_URL from .env.local to use the embedded Postgres, or set ` +
+        `ALLOW_REMOTE_DB_IN_DEV=1 if you really mean to point development at it.`
+    );
+    this.name = "RemoteDatabaseInDevelopment";
+  }
+}
+
+function remoteHostInDevelopment(): string | null {
+  if (!url) return null;
+  if (process.env.NODE_ENV === "production") return null;
+  if (process.env.ALLOW_REMOTE_DB_IN_DEV === "1") return null;
+  try {
+    const host = new URL(url).hostname;
+    const local = host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local");
+    return local ? null : host;
+  } catch {
+    return null;
+  }
+}
+
 type PGliteLike = {
   query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
 };
@@ -60,6 +90,8 @@ async function embeddedDb(): Promise<PGliteLike> {
 
 async function run<T>(sql: string, params: unknown[]): Promise<T[]> {
   if (url) {
+    const remote = remoteHostInDevelopment();
+    if (remote) throw new RemoteDatabaseInDevelopment(remote);
     const client = neonDb();
     return await client.query(sql, params as never[]) as T[];
   }

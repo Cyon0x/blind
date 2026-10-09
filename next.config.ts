@@ -1,5 +1,16 @@
 import type { NextConfig } from "next";
 
+/**
+ * React Refresh and Next's dev overlay evaluate code at runtime, so the strict
+ * production policy would break `npm run dev` outright. Development therefore
+ * gets 'unsafe-eval' and a built bundle does not — the deployed policy is the
+ * strict one, and `curl -I` on any deployment shows which is in force.
+ */
+const isProduction = process.env.NODE_ENV === "production";
+const scriptSrc = isProduction
+  ? "script-src 'self' 'unsafe-inline'"
+  : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
+
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@electric-sql/pglite", "@neondatabase/serverless"],
   async headers() {
@@ -25,7 +36,7 @@ const nextConfig: NextConfig = {
               "form-action 'self'",
               "frame-ancestors 'none'",
               "object-src 'none'",
-              "script-src 'self' 'unsafe-inline'",
+              scriptSrc,
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob:",
               "font-src 'self' data:",

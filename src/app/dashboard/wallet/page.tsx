@@ -5,6 +5,7 @@ import { WalletLinks } from "@/components/WalletLinks";
 import { currentSession } from "@/lib/session";
 import { listLinkedAccounts, listSessions, listWallets } from "@/lib/store";
 import { beldexConfig } from "@/lib/beldex/config";
+import { chainSource } from "@/lib/beldex/chain";
 import { escrowHealth } from "@/lib/beldex/escrow";
 import { shortAddress, timeAgo } from "@/lib/format";
 
@@ -15,6 +16,7 @@ export default async function WalletPage() {
   const session = await currentSession();
   if (!session) return null;
   const config = beldexConfig();
+  const source = chainSource();
   const [wallets, accounts, sessions, escrow] = await Promise.all([
     listWallets(session.user.id),
     listLinkedAccounts(session.user.id),
@@ -30,6 +32,26 @@ export default async function WalletPage() {
       </header>
 
       <WalletBar />
+
+      <section className="panel stack gap-4">
+        <span className="label">Network</span>
+        <Row k="Beldex network" v={config.nettype} />
+        <Row k="Confirmations before Blind calls a payment settled" v={String(config.confirmationsForSettlement)} />
+        <Row k="Chain evidence" v={source ?? "not configured"} />
+        <Row
+          k="Evidence is trusted"
+          v={source === "daemon" ? "yes, a node Blind was pointed at" : source === "explorer" ? "no, a third-party explorer" : "nothing to trust"}
+        />
+        {config.explorerUrl ? (
+          <p className="faint text-[13px]">
+            Anything Blind reports as settled on {config.nettype} is read from{" "}
+            {source === "explorer" ? "the explorer" : "your node"}.{" "}
+            <a className="underline" href={config.explorerUrl} target="_blank" rel="noreferrer noopener">
+              Open {config.explorerUrl.replace(/^https?:\/\//, "")}
+            </a>
+          </p>
+        ) : null}
+      </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="panel stack gap-4">
