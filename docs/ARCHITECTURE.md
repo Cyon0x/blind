@@ -47,7 +47,7 @@ Four rules hold across the whole codebase:
 | Authenticated shell | `src/app/dashboard/*` + `src/components/DashNav.tsx` |
 | Composers | `PayComposer`, `RequestComposer`, `PayUserPanel` |
 | Money movement | `FundingPanel` (payer), `ClaimFlow` (recipient), `RequestPayPanel` (request payer) |
-| Wallet | `src/lib/useBeldex.ts` — one lazy wrapper over `@bdxi/web3js` |
+| Wallet | `src/lib/useBeldex.ts` (context) + `src/components/BeldexWalletProvider.tsx` — one wallet connection for the whole app, mounted in the root layout, restored from the wallet's own grant on reload |
 
 Fonts are loaded with `next/font` (Anybody, Rubik Mono One, Martian Mono, Hanken
 Grotesk). Every interactive state has a designed empty, loading, error, success

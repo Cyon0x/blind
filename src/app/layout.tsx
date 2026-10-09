@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Anybody, Hanken_Grotesk, Martian_Mono, Rubik_Mono_One } from "next/font/google";
+import { BeldexWalletProvider } from "@/components/BeldexWalletProvider";
 import "./globals.css";
 
 const anybody = Anybody({ subsets: ["latin"], variable: "--font-anybody", display: "swap" });
@@ -39,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to content
         </a>
-        {children}
+        <BeldexWalletProvider>{children}</BeldexWalletProvider>
       </body>
     </html>
   );

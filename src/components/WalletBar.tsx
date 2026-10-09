@@ -23,7 +23,9 @@ export function WalletBar({ compact = false }: { compact?: boolean }) {
           <span className="label">Beldex wallet</span>
           <span className="figure text-[13px]">
             {wallet.phase === "probing"
-              ? "looking for the extension…"
+              ? wallet.restoring
+                ? "checking with your wallet…"
+                : "looking for the extension…"
               : wallet.phase === "absent"
                 ? "extension not installed"
                 : wallet.phase === "connected" && wallet.address
