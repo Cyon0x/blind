@@ -99,6 +99,21 @@ lists every variable with what it buys you. The four that matter most:
 
 ## Deployment
 
+### Live
+
+- **App:** https://blind-pi-six.vercel.app
+- **Repository:** https://github.com/Cyon0x/blind
+- **Database:** Neon Postgres, provisioned through the Vercel integration and
+  migrated with `npm run db:migrate`.
+- **Chain read:** Beldex mainnet daemon. `GET /api/health` reports the live height.
+- **Configured:** `APP_URL`, `AUTH_SECRET`, `DATABASE_URL`, `BDX_CLAIM_KEY`,
+  `BDX_NETWORK`, `BDX_DAEMON_URL`, `BDX_EXPLORER_URL`, `BDX_CONFIRMATIONS`.
+- **Still missing on the deployment:** Google and X client ids/secrets, and the
+  escrow signer (see below). Until these exist the sign-in page and the pay flow
+  say so rather than pretending.
+
+### From scratch
+
 1. Push the repository and import it into Vercel (or run `vercel`).
 2. Set the environment variables from `.env.example`. At minimum: `APP_URL`,
    `AUTH_SECRET`, `DATABASE_URL_POOLED`, `BDX_DAEMON_URL`, `BDX_CLAIM_KEY`.
