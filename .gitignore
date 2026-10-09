@@ -7,4 +7,8 @@ node_modules
 *.tsbuildinfo
 .pglite
 BDX_SECRETS.env
+# The escrow signer's credentials, wallet password and wallet files are infra
+# secrets, not source. See infra/escrow/README.md.
+infra/escrow/.env
+infra/escrow/secrets/
 .env*

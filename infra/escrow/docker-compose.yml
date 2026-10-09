@@ -1,0 +1,59 @@
+# The two processes Blind's escrow needs, on a host you control.
+#
+#   docker compose up -d --build      # daemon + signer
+#   docker compose run --rm -i --entrypoint /usr/local/bin/restore-wallet.sh signer
+#
+# Nothing here is public-facing by default: the signer's port is bound to
+# 127.0.0.1, because a wallet RPC port that can move funds should be reachable
+# only from wherever the app runs (or through an authenticated tunnel).
+services:
+  daemon:
+    build:
+      context: .
+      args:
+        BDX_VERSION: ${BDX_VERSION:-v7.0.4}
+    restart: unless-stopped
+    command: >
+      beldexd --testnet --non-interactive
+      --data-dir /data
+      --rpc-bind-ip 0.0.0.0 --rpc-bind-port 28081
+      --p2p-bind-ip 0.0.0.0 --p2p-bind-port 28080
+      --log-level 1
+      --out-peers 24 --in-peers 32
+    volumes:
+      - daemon-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -X POST http://127.0.0.1:28081/json_rpc -H 'content-type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":\"0\",\"method\":\"get_info\"}' >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  signer:
+    build:
+      context: .
+      args:
+        BDX_VERSION: ${BDX_VERSION:-v7.0.4}
+    restart: unless-stopped
+    depends_on:
+      daemon:
+        condition: service_healthy
+    environment:
+      BDX_NETWORK: ${BDX_NETWORK:-testnet}
+      BDX_DAEMON_ADDRESS: daemon:28081
+      BDX_WALLET_RPC_PORT: "29092"
+      BDX_WALLET_RPC_USER: ${BDX_WALLET_RPC_USER:?set BDX_WALLET_RPC_USER in infra/escrow/.env}
+      BDX_WALLET_RPC_PASSWORD: ${BDX_WALLET_RPC_PASSWORD:?set BDX_WALLET_RPC_PASSWORD in infra/escrow/.env}
+      BDX_ESCROW_WALLET: ${BDX_ESCROW_WALLET:-blind-escrow}
+    volumes:
+      - escrow-wallet:/wallet
+      - ./secrets:/secrets:ro
+    ports:
+      # Loopback only. Exposing this port publicly would expose a wallet that can
+      # spend escrowed funds; put an authenticated tunnel in front if the app is
+      # somewhere else.
+      - "127.0.0.1:29092:29092"
+
+volumes:
+  daemon-data:
+  escrow-wallet:

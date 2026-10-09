@@ -144,11 +144,13 @@ lists every variable with what it buys you. The four that matter most:
 3. Run `npm run db:migrate` against the production database.
 4. Add OAuth credentials, with callbacks `${APP_URL}/api/auth/google/callback` and
    `${APP_URL}/api/auth/x/callback`.
-5. Host `beldex-wallet-rpc` on a machine with the escrow wallet and set
-   `BDX_WALLET_RPC_URL` to it. **This is the one piece with no viable home on
-   Vercel**: `beldex-wallet-rpc` has no `darwin-x86_64` build, and Vercel runs no
-   long-lived process. Until you host it, Blind deploys and works, and honest
-   "escrow unavailable" states stand in for the features that need it.
+5. Run the escrow signer and set `BDX_WALLET_RPC_URL` to it:
+   `infra/escrow/` is a compose file with the testnet daemon and
+   `beldex-wallet-rpc`, plus the one-shot wallet restore. **This is the one
+   piece with no viable home on Vercel**: Beldex publishes no `darwin-x86_64`
+   build and Vercel runs no long-lived process. Until you host it, Blind deploys
+   and works, and honest "escrow unavailable" states stand in for the features
+   that need it.
 6. Check the deployment: `curl $APP_URL/api/health` and `npm run bdx:doctor`.
 
 ## Known limitations
@@ -158,9 +160,10 @@ lists every variable with what it buys you. The four that matter most:
   makes that window explicit: one fresh subaddress per payment, a payout only ever
   to the destination the claim recorded, at least an hour's grace before a refund,
   and a hot-balance cap. It is custody, and it is documented rather than hidden.
-- **Escrow is not running here.** No Beldex wallet-rpc binary exists for this
-  development machine's architecture and Docker is not installed, so the signer
-  must run on a Linux host. Blind Pay therefore reports `escrow_unavailable` on
+- **Escrow is not running here.** Beldex publishes `linux-x86_64` and
+  `mac-silicon` builds only — no Intel-mac build — and Docker is not installed on
+  the machine this was written on, so the signer needs a host of its own
+  (`infra/escrow/`, unrun). Blind Pay therefore reports `escrow_unavailable` on
   this deployment, and the payment lifecycle beyond deposit detection is
   **untested against a real wallet** until that host exists.
 - **Testnet has no public daemon.** Beldex publishes a testnet chain and the

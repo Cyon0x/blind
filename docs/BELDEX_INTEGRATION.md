@@ -163,10 +163,13 @@ The reference for txids is `get_transfer_by_txid`; reconciliation after an
 ambiguous send (`reconcileOutgoing`) searches `get_transfers` for a matching
 amount and destination rather than sending a second transfer.
 
-**Not verified on this machine.** `beldex-wallet-rpc` ships for linux and
-macOS-arm only — there is no `darwin-x86_64` build, and Docker is not installed
-here — so every escrow operation in this repository is implemented but has not
-been exercised against a live wallet. Blind therefore reports
+**Not verified on this machine.** Beldex's published release assets are
+`beldex-linux-x86_64-*`, `beldex-mac-silicon-*` and `beldex-win-x64-*` — there is
+no Intel-mac build, and the machine this was written on is an Intel Mac with no
+Docker — so every escrow operation in this repository is implemented but has not
+been exercised against a live wallet. `infra/escrow/` is the process to run it
+on a host that can: a static daemon and signer, and a one-shot restore that reads
+the escrow seed on stdin and never writes it down. Blind therefore reports
 `escrow_unavailable`, creates no claim that appears funded, and the doctor prints
 `skip` for each wallet check. This is a hosting blocker, not a code path that has
 been faked.
