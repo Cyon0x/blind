@@ -1,0 +1,495 @@
+@import "tailwindcss";
+
+/*
+ * Blind — the darkroom.
+ *
+ * Raw hex lives here and nowhere else. Every component reads a token.
+ * The two signature shapes are the blade (an eight-sided aperture polygon) and
+ * the pill; a rectangle with a 4px radius appears nowhere in this product.
+ */
+
+:root {
+  --ground: #0b0c0d;
+  --raised: #141618;
+  --raised-2: #1c1f22;
+  --ink: #f2f1ed;
+  --ink-2: #a6a7a4;
+  /* Kept above 4.5:1 against both ground and raised: this is the colour of the
+     12px figures and micro-labels, which are text, not decoration. */
+  --ink-3: #8b8d8a;
+  --rule: rgba(242, 241, 237, 0.13);
+  --rule-strong: rgba(242, 241, 237, 0.26);
+  --safelight: #ff5a2b;
+  --safelight-dim: rgba(255, 90, 43, 0.16);
+  --develop: #12d07a;
+  --develop-dim: rgba(18, 208, 122, 0.14);
+  --on-develop: #04130b;
+  --bdx: #00c853;
+  --shadow-cut: inset 0 0 0 1px var(--rule);
+  --glow-safelight: 0 0 0 1px rgba(255, 90, 43, 0.4), 0 0 34px -10px rgba(255, 90, 43, 0.5);
+  --blade: polygon(24% 0, 76% 0, 100% 24%, 100% 76%, 76% 100%, 24% 100%, 0 76%, 0 24%);
+  --blade-soft: polygon(14% 0, 86% 0, 100% 14%, 100% 86%, 86% 100%, 14% 100%, 0 86%, 0 14%);
+  --ease-darkroom: cubic-bezier(0.16, 0.84, 0.3, 1);
+}
+
+:root[data-theme="print"] {
+  --ground: #edeae4;
+  --raised: #fbf9f5;
+  --raised-2: #dfdbd2;
+  --ink: #14161a;
+  --ink-2: #5a5c5f;
+  --ink-3: #6a6c6f;
+  --rule: rgba(20, 22, 26, 0.14);
+  --rule-strong: rgba(20, 22, 26, 0.3);
+  --safelight: #c63a10;
+  --safelight-dim: rgba(198, 58, 16, 0.12);
+  --develop: #0b8f53;
+  --develop-dim: rgba(11, 143, 83, 0.12);
+  --on-develop: #04130b;
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-raised: var(--raised);
+  --color-raised-2: var(--raised-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);
+  --color-safelight: var(--safelight);
+  --color-develop: var(--develop);
+  --color-on-develop: var(--on-develop);
+  --color-bdx: var(--bdx);
+  --font-display: var(--font-anybody), system-ui, sans-serif;
+  --font-wordmark: var(--font-rubik-mono), monospace;
+  --font-figure: var(--font-martian-mono), ui-monospace, monospace;
+  --font-body: var(--font-hanken), system-ui, sans-serif;
+}
+
+* {
+  border-color: var(--rule);
+}
+
+html {
+  background: var(--ground);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  /* The safelight: one warm glow from the top-left of the room. */
+  background-image: radial-gradient(1200px 620px at 8% -12%, var(--safelight-dim), transparent 62%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: var(--develop);
+  color: var(--on-develop);
+}
+
+:focus-visible {
+  outline: 2px solid var(--develop);
+  outline-offset: 3px;
+}
+
+/*
+ * The blade shapes are clip-paths, and a clip-path also clips an outline, so the
+ * global focus ring above is invisible on every button and field. These draw the
+ * ring *inside* the clip instead, which is the only place it can be seen.
+ */
+.btn:focus-visible,
+.pill:focus-visible,
+.field:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--develop);
+}
+
+.btn-primary:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--on-develop);
+}
+
+/* ------------------------------------------------------------------ type */
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variation-settings: "wdth" 118;
+  letter-spacing: -0.015em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.wordmark {
+  font-family: var(--font-wordmark);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.figure {
+  font-family: var(--font-figure);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Preflight gives <code> the browser's own mono stack, which puts a fourth
+   typeface on the page and looks nothing like the figures around it. */
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-figure);
+  /* Addresses and callback paths have no spaces in them, so a long one used to
+     push its panel, and then the page, wider than the viewport. */
+  overflow-wrap: anywhere;
+}
+
+.label {
+  font-family: var(--font-figure);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.muted {
+  color: var(--ink-2);
+}
+
+.faint {
+  color: var(--ink-3);
+}
+
+/* --------------------------------------------------------------- shapes */
+
+.blade {
+  clip-path: var(--blade);
+}
+
+.blade-soft {
+  clip-path: var(--blade-soft);
+}
+
+/* A panel is a blade with a cut-line edge; the inset ring survives the clip. */
+.panel {
+  position: relative;
+  background: var(--raised);
+  clip-path: var(--blade);
+  /* The aperture costs 24% of each edge, so the padding has to give way on a
+     phone or the usable column is narrower than the longest word in it. */
+  padding: clamp(20px, 4vw, 30px) clamp(20px, 4.6vw, 34px);
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: var(--blade);
+  box-shadow: var(--shadow-cut);
+  pointer-events: none;
+}
+
+.panel-flat {
+  background: var(--raised-2);
+}
+
+/* Film perforations, used only on edges that scroll sideways. */
+.sprocket {
+  position: relative;
+}
+
+.sprocket::before,
+.sprocket::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--rule-strong) 0 8px,
+    transparent 8px 20px
+  );
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+
+.sprocket::before {
+  top: 0;
+}
+
+.sprocket::after {
+  bottom: 0;
+}
+
+.rule-row {
+  border-top: 1px solid var(--rule);
+}
+
+/* --------------------------------------------------------------- buttons */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--font-figure);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 16px 28px;
+  cursor: pointer;
+  border: 0;
+  transition: transform 160ms var(--ease-darkroom), background-color 200ms, color 200ms;
+  clip-path: var(--blade);
+  text-decoration: none;
+  /* A long command ("I sent it, check the escrow now") inside a blade panel
+     must break, or it sets the panel's min-content wider than a phone. Short
+     labels are unaffected because they never reach the wrap point. */
+  white-space: normal;
+  text-wrap: balance;
+}
+
+.btn-primary {
+  background: var(--develop);
+  color: var(--on-develop);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  box-shadow: var(--shadow-cut);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--raised-2);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--safelight);
+  box-shadow: inset 0 0 0 1px rgba(255, 90, 43, 0.5);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-family: var(--font-figure);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  box-shadow: var(--shadow-cut);
+  color: var(--ink-2);
+}
+
+.pill-develop {
+  color: var(--develop);
+  box-shadow: inset 0 0 0 1px rgba(18, 208, 122, 0.45);
+  background: var(--develop-dim);
+}
+
+.pill-safelight {
+  color: var(--safelight);
+  box-shadow: inset 0 0 0 1px rgba(255, 90, 43, 0.45);
+  background: var(--safelight-dim);
+}
+
+.pill-dead {
+  color: var(--ink-3);
+}
+
+/* ---------------------------------------------------------------- fields */
+
+.field {
+  width: 100%;
+  background: var(--ground);
+  color: var(--ink);
+  border: 0;
+  box-shadow: var(--shadow-cut);
+  padding: 16px 18px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  clip-path: var(--blade-soft);
+}
+
+.field::placeholder {
+  color: var(--ink-3);
+}
+
+.field-amount {
+  font-family: var(--font-wordmark);
+  font-size: clamp(34px, 7vw, 62px);
+  letter-spacing: -0.01em;
+  padding: 18px 22px;
+  text-align: right;
+}
+
+.field:disabled {
+  opacity: 0.5;
+}
+
+.error-text {
+  color: var(--safelight);
+  font-size: 14px;
+}
+
+/* ---------------------------------------------------------------- motion */
+
+@keyframes develop {
+  from {
+    filter: blur(9px) saturate(0);
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    filter: blur(0) saturate(1);
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes aperture-open {
+  from {
+    transform: rotate(-38deg) scale(0.94);
+    opacity: 0.35;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes draw {
+  from {
+    stroke-dashoffset: var(--draw-length, 1400);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pulse-safelight {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.develops {
+  animation: develop 520ms var(--ease-darkroom) both;
+}
+
+.develops-2 {
+  animation: develop 520ms var(--ease-darkroom) 80ms both;
+}
+
+.develops-3 {
+  animation: develop 520ms var(--ease-darkroom) 160ms both;
+}
+
+.iris-draw {
+  stroke-dasharray: var(--draw-length, 1400);
+  animation: draw 1500ms var(--ease-darkroom) both;
+}
+
+.iris-blades {
+  transform-origin: 50% 50%;
+  animation: aperture-open 900ms var(--ease-darkroom) both;
+}
+
+.safelight-pulse {
+  animation: pulse-safelight 2400ms ease-in-out infinite;
+}
+
+.ticker-track {
+  animation: ticker 42s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+  .develops,
+  .develops-2,
+  .develops-3 {
+    animation: none;
+    filter: none;
+    opacity: 1;
+  }
+  .iris-draw {
+    stroke-dasharray: none;
+    animation: none;
+  }
+  .ticker-track {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------------- utility */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.wrap-shell {
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
+  padding-inline: clamp(18px, 4vw, 40px);
+}
+
+.grid-contact {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.scroll-x {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-block: 18px;
+  scrollbar-width: thin;
+}
+
+/*
+ * There is deliberately no .sr-only here: Tailwind ships one, and a second
+ * definition later in the file would beat `focus:not-sr-only` in the cascade,
+ * leaving the skip link invisible while focused.
+ */
