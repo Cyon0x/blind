@@ -7,3 +7,4 @@ node_modules
 *.tsbuildinfo
 .pglite
 BDX_SECRETS.env
+.env*

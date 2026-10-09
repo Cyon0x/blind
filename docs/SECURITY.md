@@ -142,9 +142,14 @@ design reflects it:
 2. **Escrow is trusted during the claim window.** Not a bug — a property of a
    chain with no scripts. Documented in
    [PRIVACY_THREAT_MODEL.md](PRIVACY_THREAT_MODEL.md).
-3. **No CSP header yet.** The app has no third-party scripts, so the risk is low,
-   but a `Content-Security-Policy` should be added before handling real value. This
-   is the highest-value hardening item outstanding.
+3. **CSP allows inline script and style.** `next.config.ts` sends a
+   `Content-Security-Policy` that pins every fetch to `'self'` and sets
+   `frame-ancestors 'none'`, `base-uri 'self'`, `form-action 'self'` and
+   `object-src 'none'`. React's inline hydration bootstrap still requires
+   `'unsafe-inline'` for `script-src` and `style-src`, so the policy does not by
+   itself defeat an injection that already runs same-origin. A nonce-based policy
+   generated in middleware is the next step if Blind ever adds a third-party
+   script or an HTML sink.
 4. **`audit_log` has no retention policy** and no tamper-evidence beyond being
    append-only by convention.
 5. **Rate limiting is per-instance-fixed-window**, not a distributed token bucket;
