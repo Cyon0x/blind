@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Blind">
+  <!-- Blind's mark: the eight-blade aperture clipped to the same blade outline
+       the panels use. Ground is darkroom black, the opening is develop green. -->
+  <defs>
+    <clipPath id="blade">
+      <polygon points="48,0 152,0 200,48 200,152 152,200 48,200 0,152 0,48" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#blade)">
+    <rect width="200" height="200" fill="#0B0C0D" />
+    <polygon points="188.0,100.0 162.2,162.2 100.0,188.0 37.8,162.2 12.0,100.0 37.8,37.8 100.0,12.0 162.2,37.8" fill="#1C1F22" />
+    <g fill="#050706" stroke="#12D07A" stroke-width="2.5" stroke-linejoin="round">
+      <path d="M178.0 100.0L163.8 144.9L157.6 122.8L137.8 107.2Z" />
+      <path d="M155.2 155.2L113.4 176.8L124.6 156.9L121.6 131.8Z" />
+      <path d="M100.0 178.0L55.1 163.8L77.2 157.6L92.8 137.8Z" />
+      <path d="M44.8 155.2L23.2 113.4L43.1 124.6L68.2 121.6Z" />
+      <path d="M22.0 100.0L36.2 55.1L42.4 77.2L62.2 92.8Z" />
+      <path d="M44.8 44.8L86.6 23.2L75.4 43.1L78.4 68.2Z" />
+      <path d="M100.0 22.0L144.9 36.2L122.8 42.4L107.2 62.2Z" />
+      <path d="M155.2 44.8L176.8 86.6L156.9 75.4L131.8 78.4Z" />
+    </g>
+    <polygon points="152.0,100.0 136.8,136.8 100.0,152.0 63.2,136.8 48.0,100.0 63.2,63.2 100.0,48.0 136.8,63.2" fill="#12D07A" />
+  </g>
+</svg>
