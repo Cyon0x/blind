@@ -177,7 +177,7 @@ describe("beldex-auth-v1 statements", () => {
       text,
       signature: sign(text),
       nettype: "mainnet",
-      expectedDomain: "blind.app",
+      expectedDomains: ["blind.app"],
       now: fields.iat + 1_000,
     });
     expect(result.valid).toBe(true);
@@ -189,11 +189,96 @@ describe("beldex-auth-v1 statements", () => {
       text,
       signature: sign(text),
       nettype: "mainnet",
-      expectedDomain: "evil.example",
+      expectedDomains: ["evil.example"],
       now: fields.iat + 1_000,
     });
     expect(result.valid).toBe(false);
     if (!result.valid) expect(result.reason).toContain("bound to");
+  });
+
+  it("accepts the origin form of the same domain the wallet actually sends", () => {
+    // The Beldex Wallet writes the page origin into `domain`
+    // ("https://blind.app") while the server holds the bare host ("blind.app").
+    // Rejecting that made wallet sign-in impossible on the deployed site.
+    const originFields = { ...fields, domain: "https://blind.app", uri: "https://blind.app/signin" };
+    const text = buildAuthStatement(originFields);
+    const result = verifyAuthStatement({
+      text,
+      signature: sign(text),
+      nettype: "mainnet",
+      expectedDomains: ["blind.app"],
+      now: fields.iat + 1_000,
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts a host-with-port from either side", () => {
+    const localFields = { ...fields, domain: "http://localhost:3000", uri: "http://localhost:3000/signin" };
+    const text = buildAuthStatement(localFields);
+    const result = verifyAuthStatement({
+      text,
+      signature: sign(text),
+      nettype: "mainnet",
+      expectedDomains: ["localhost:3000"],
+      now: fields.iat + 1_000,
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it("still refuses a lookalike host that merely contains ours", () => {
+    for (const domain of ["https://blind.app.example.com", "blind.app.evil.example", "https://blind-app"]) {
+      const text = buildAuthStatement({ ...fields, domain });
+      const result = verifyAuthStatement({
+        text,
+        signature: sign(text),
+        nettype: "mainnet",
+        expectedDomains: ["blind.app"],
+        now: fields.iat + 1_000,
+      });
+      expect(result.valid, `${domain} must not pass`).toBe(false);
+    }
+  });
+
+  it("leaves a non-web uri alone, since it names no site", () => {
+    // An extension page is not claiming a web origin; refusing it would break
+    // sign-in for a wallet that reports where it was, not which site it served.
+    const text = buildAuthStatement({ ...fields, uri: "chrome-extension://abcdefghijklmnop/signin" });
+    const result = verifyAuthStatement({
+      text,
+      signature: sign(text),
+      nettype: "mainnet",
+      expectedDomains: ["blind.app"],
+      now: fields.iat + 1_000,
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it("refuses a statement whose uri points at another site", () => {
+    const text = buildAuthStatement({ ...fields, uri: "https://evil.example/signin" });
+    const result = verifyAuthStatement({
+      text,
+      signature: sign(text),
+      nettype: "mainnet",
+      expectedDomains: ["blind.app"],
+      now: fields.iat + 1_000,
+    });
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.reason).toMatch(/uri points at evil\.example/);
+  });
+
+  it("refuses every statement when the deployment cannot name its own site", () => {
+    // authDomains() is empty when neither APP_URL nor the request host names a
+    // site we serve; nothing can legitimately satisfy that, so nothing may pass.
+    const text = buildAuthStatement(fields);
+    const result = verifyAuthStatement({
+      text,
+      signature: sign(text),
+      nettype: "mainnet",
+      expectedDomains: [],
+      now: fields.iat + 1_000,
+    });
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.reason).toContain("no configured site");
   });
 
   it("refuses an expired statement", () => {
@@ -202,7 +287,7 @@ describe("beldex-auth-v1 statements", () => {
       text,
       signature: sign(text),
       nettype: "mainnet",
-      expectedDomain: "blind.app",
+      expectedDomains: ["blind.app"],
       now: fields.exp + 600_000,
     });
     expect(result.valid).toBe(false);
@@ -221,7 +306,7 @@ describe("beldex-auth-v1 statements", () => {
       text,
       signature: foreign,
       nettype: "mainnet",
-      expectedDomain: "blind.app",
+      expectedDomains: ["blind.app"],
       now: fields.iat + 1_000,
     });
     expect(result.valid).toBe(false);

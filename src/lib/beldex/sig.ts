@@ -3,6 +3,7 @@ import { keccak_256 } from "@noble/hashes/sha3.js";
 import { base58Decode, base58Encode } from "./base58";
 import { decodeAddress } from "./address";
 import type { BdxNettype } from "./nettype";
+import { sameSite, webHost } from "../site";
 
 /**
  * Verification of the `SigV1` scheme the Beldex Wallet uses for message and
@@ -243,7 +244,13 @@ export function verifyAuthStatement(opts: {
   text: string;
   signature: string;
   nettype: BdxNettype;
-  expectedDomain: string;
+  /**
+   * Every host this statement may legitimately be bound to. More than one,
+   * because the wallet signs the origin the user is *on* — which is the request
+   * host — while the app is also reachable on its configured URL and on Vercel
+   * aliases of the same deployment.
+   */
+  expectedDomains: string[];
   now?: number;
   clockSkewMs?: number;
 }): AuthStatementCheck {
@@ -257,8 +264,25 @@ export function verifyAuthStatement(opts: {
   if (fields.network !== opts.nettype) {
     return { valid: false, reason: `statement was made on ${fields.network}, this app serves ${opts.nettype}` };
   }
-  if (fields.domain !== opts.expectedDomain) {
-    return { valid: false, reason: `statement is bound to ${fields.domain}, not ${opts.expectedDomain}` };
+  if (opts.expectedDomains.length === 0) {
+    return { valid: false, reason: "this deployment has no configured site to bind wallet statements to" };
+  }
+  if (!opts.expectedDomains.some((domain) => sameSite(fields.domain, domain))) {
+    return {
+      valid: false,
+      reason: `statement is bound to ${fields.domain}, not ${opts.expectedDomains.join(" or ")}`,
+    };
+  }
+  // `uri` is the origin the signer was on. When it claims a web origin, that
+  // origin has to be ours — a statement that authorises us while pointing at
+  // another site is a statement we should not accept. Non-web schemes say
+  // nothing about which site this is, so they are left alone.
+  const uriHost = webHost(fields.uri);
+  if (uriHost && !opts.expectedDomains.some((domain) => sameSite(uriHost, domain))) {
+    return {
+      valid: false,
+      reason: `statement's uri points at ${uriHost}, not ${opts.expectedDomains.join(" or ")}`,
+    };
   }
   const check = verifySpendKeySignature({
     message: opts.text,

@@ -3,7 +3,7 @@
 ## Running the suite
 
 ```bash
-npm test              # vitest, 82 tests, no external services needed
+npm test              # vitest, 91 tests, no external services needed
 npm run test:watch
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint
@@ -25,12 +25,12 @@ data.
 | Area | File | Notes |
 | --- | --- | --- |
 | Address codec | `tests/beldex-address.test.ts` | 10 tests. Byte-for-byte against fixtures produced by Beldex's own WASM wallet core: varint prefixes (209 → 2 bytes → 97 chars mainnet, 53 → 95 chars testnet), Monero base58 block boundaries, keccak checksums, wrong-network rejection |
-| `SigV1` signatures | `tests/beldex-signature.test.ts` | 15 tests. Real ed25519 arithmetic: valid signatures verify, tampering fails, wrong key fails, replay across messages fails, domain binding enforced, expiry enforced |
+| `SigV1` signatures | `tests/beldex-signature.test.ts` | 21 tests. Real ed25519 arithmetic: valid signatures verify, tampering fails, wrong key fails, replay across messages fails, domain binding enforced in both the origin and bare-host shapes, lookalike hosts refused, a foreign web `uri` refused, expiry enforced |
 | Payment state machine | `tests/payment-state.test.ts` | 13 tests against embedded Postgres: no double funding, single claim winner, wrong secret refused, unfunded claim refused, expired claim refused, request/pay transitions cannot cross, one payout slot per payment, one receipt per side, rate window closes, expiry never retires a funded payment |
 | Claim-link disclosure | `tests/payment-state.test.ts` | The payer gets their own link; a payment addressed to somebody else is **never** disclosed to the payer; the addressed recipient gets it; a stranger gets nothing; a request row returns nothing |
 | Redaction | `tests/redaction.test.ts` | 5 tests over a fully-populated row, asserting on the serialised JSON: the payer never sees the recipient's address or identity (or vice versa), the recipient never sees the payer's deposit address, the public link carries no address or payout txid, and settlement wording never overstates what was verified |
 | Claim-secret sealing | `tests/seal-integrity.test.ts` | 8 tests: round-trip, fresh nonce per seal, tampered ciphertext rejected, junk rejected, no key means a clear refusal, receipt integrity stable under key reordering and sensitive to any field change, engraving seed deterministic |
-| Sessions and CSRF | `tests/session-tokens.test.ts` | 7 tests: only hashes stored, CSRF bound to the session, secret rotation invalidates tokens, short secret refused, origin allow-list, app URL and auth-domain derivation |
+| Sessions and CSRF | `tests/session-tokens.test.ts` | 10 tests: only hashes stored, CSRF bound to the session, secret rotation invalidates tokens, short secret refused, origin allow-list, app URL and auth-domain derivation, and the wallet binding set (configured host plus the request host, never a spoofed one) |
 
 ## What is *not* covered, and why
 

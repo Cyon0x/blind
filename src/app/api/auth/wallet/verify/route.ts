@@ -1,5 +1,5 @@
 import { handle, json, limited, readJson } from "@/lib/api";
-import { AuthError, appUrl, authDomain, currentSession, requestContext, setSessionCookies, startSession } from "@/lib/session";
+import { AuthError, appUrl, authDomains, currentSession, requestContext, setSessionCookies, startSession } from "@/lib/session";
 import { verifyWalletSignIn } from "@/lib/auth";
 import { audit, notify } from "@/lib/store";
 
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const result = await verifyWalletSignIn({
       statement: body.statement,
       signature: body.signature,
-      expectedDomain: authDomain(host),
+      expectedDomains: authDomains(host),
       purpose,
       linkUserId: existing?.user.id ?? null,
     });

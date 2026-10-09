@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import { cookies, headers } from "next/headers";
 import * as store from "./store";
 import type { UserRow } from "./store";
+import { siteHost } from "./site";
 
 export const SESSION_COOKIE = "blind_session";
 export const CSRF_COOKIE = "blind_csrf";
@@ -175,4 +176,26 @@ export function authDomain(fallbackHost?: string | null): string {
   } catch {
     return "localhost:3000";
   }
+}
+
+/**
+ * Every host a wallet statement may be bound to for this request.
+ *
+ * The wallet signs the origin the browser is actually on, so the request host is
+ * ground truth — but only when it is a host this app actually serves, so a
+ * spoofed Host header cannot decide which site we are. The configured APP_URL is
+ * included too, because a payment link or an OAuth round trip can land the user
+ * back on it.
+ *
+ * Empty when neither names a host we serve, which makes the caller refuse every
+ * statement rather than trust the Host header as proof of identity.
+ */
+export function authDomains(fallbackHost?: string | null): string[] {
+  // Read the configured URL directly rather than through appUrl(), which falls
+  // back to the request host: that fallback would let an attacker-supplied Host
+  // header become the value we compare against.
+  const configured = siteHost(process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "");
+  const requestHost = fallbackHost ? siteHost(fallbackHost) : null;
+  const served = requestHost && originAllowed(`https://${requestHost}`) ? requestHost : null;
+  return [...new Set([configured, served].filter((host): host is string => host !== null))];
 }

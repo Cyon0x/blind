@@ -306,7 +306,8 @@ export async function resolveIdentity(identity: Identity): Promise<SignInResult>
 export async function verifyWalletSignIn(input: {
   statement: string;
   signature: string;
-  expectedDomain: string;
+  /** Every host this statement may be bound to; see authDomains(). */
+  expectedDomains: string[];
   /** 'link' attaches the proven address to the signed-in account instead. */
   purpose?: "signin" | "link";
   linkUserId?: string | null;
@@ -317,7 +318,7 @@ export async function verifyWalletSignIn(input: {
       text: input.statement,
       signature: input.signature,
       nettype: beldexConfig().nettype,
-      expectedDomain: input.expectedDomain,
+      expectedDomains: input.expectedDomains,
     });
     if (!linkCheck.valid) throw new AuthError(`Wallet signature rejected: ${linkCheck.reason}`, 401);
     const linkDecoded = decodeAddress(linkCheck.fields.address, beldexConfig().nettype);
@@ -356,7 +357,7 @@ export async function verifyWalletSignIn(input: {
     text: input.statement,
     signature: input.signature,
     nettype: config.nettype,
-    expectedDomain: input.expectedDomain,
+    expectedDomains: input.expectedDomains,
   });
   if (!check.valid) throw new AuthError(`Wallet signature rejected: ${check.reason}`, 401);
 

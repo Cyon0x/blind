@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { csrfTokenFor, hashToken, originAllowed, appUrl, authDomain } from "@/lib/session";
+import { csrfTokenFor, hashToken, originAllowed, appUrl, authDomain, authDomains } from "@/lib/session";
 
 beforeAll(() => {
   process.env.AUTH_SECRET = "blind-test-secret-long-enough-to-sign";
@@ -59,5 +59,34 @@ describe("origin and URL handling", () => {
     expect(appUrl("localhost:3000")).toBe("http://localhost:3000");
     expect(appUrl("blind.example")).toBe("https://blind.example");
     expect(appUrl()).toBe("http://localhost:3000");
+  });
+
+  it("binds wallet sign-in to the configured site and the host the request arrived on", () => {
+    // The wallet signs the origin the user is actually browsing, which on a
+    // preview alias or in local dev is not APP_URL. Binding only to APP_URL
+    // made wallet sign-in impossible everywhere except the configured host.
+    process.env.APP_URL = "https://blind.example";
+    expect(authDomains("blind.example")).toEqual(["blind.example"]);
+    expect(authDomains("localhost:3000")).toEqual(["blind.example", "localhost:3000"]);
+    expect(authDomains("127.0.0.1:3000")).toEqual(["blind.example", "127.0.0.1:3000"]);
+    expect(authDomains("blind-git-main-me.vercel.app")).toEqual(["blind.example", "blind-git-main-me.vercel.app"]);
+  });
+
+  it("does not let a spoofed Host header widen the wallet binding", () => {
+    process.env.APP_URL = "https://blind.example";
+    expect(authDomains("evil.example")).toEqual(["blind.example"]);
+    expect(authDomains("blind.example.evil.example")).toEqual(["blind.example"]);
+    expect(authDomains("not a host")).toEqual(["blind.example"]);
+    expect(authDomains(null)).toEqual(["blind.example"]);
+  });
+
+  it("binds wallet sign-in to the request host when no app URL is configured", () => {
+    delete process.env.APP_URL;
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    expect(authDomains("localhost:3000")).toEqual(["localhost:3000"]);
+    // Nothing we serve is named here, so there is no honest answer to "which
+    // site is this?" — the list is empty and every statement is refused rather
+    // than deriving the binding from the header under suspicion.
+    expect(authDomains("evil.example")).toEqual([]);
   });
 });

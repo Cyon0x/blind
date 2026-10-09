@@ -23,6 +23,16 @@ so.
   to this app's host — a signature harvested on another site is useless here.
   Accepted framings are configurable via `BDX_SIGNATURE_FRAMINGS`, and the default
   accepts plain, `Beldex signed Message:` and `Monero signed Message:` prefixes.
+- **The binding compares hosts, and accepts exactly the hosts we serve.** The wallet
+  writes the page *origin* into `domain` (`https://blind.app`) while this app's
+  configuration holds the bare host (`blind.app`), so both are normalised to a host
+  and compared (`src/lib/site.ts`). The accepted set is the configured `APP_URL`
+  host plus the request host, and the request host only counts when it is one we
+  already serve — a spoofed `Host` header cannot widen the binding. When neither
+  names a site we serve the set is empty and every statement is refused rather
+  than trusting the header under suspicion. A statement whose `uri` claims a web
+  origin other than ours is refused too; a non-web scheme (`chrome-extension://…`)
+  names no site and is left alone.
 - **Sign-out** deletes the session row and clears both cookies.
 - **Rate limits** on sign-in start, wallet challenge/verify, username checks, claim
   attempts, claim-link disclosure and settlement checks.
