@@ -145,9 +145,14 @@ lists every variable with what it buys you. The four that matter most:
 4. Add OAuth credentials, with callbacks `${APP_URL}/api/auth/google/callback` and
    `${APP_URL}/api/auth/x/callback`.
 5. Run the escrow signer and set `BDX_WALLET_RPC_URL` to it:
-   `infra/escrow/` is a compose file with the testnet daemon and
-   `beldex-wallet-rpc`, plus the one-shot wallet restore, and `tunnel.sh` opens
-   the way in. **This is the one piece with no viable home on Vercel**: Beldex
+   `infra/escrow/` is a compose file with the testnet daemon,
+   `beldex-wallet-rpc` and a `cloudflared` tunnel, plus a one-shot wallet
+   restore that reads the seed from stdin. `docker compose up -d` brings the
+   three up; the wallet itself lives in the `escrow_escrow-wallet` volume and is
+   unlocked by `infra/escrow/secrets/escrow-wallet-password` (both gitignored).
+   `tunnel.sh` is the host-side alternative if you would rather not run the
+   tunnel in Docker. A quick tunnel's hostname changes when it restarts, so
+   `BDX_WALLET_RPC_URL` in Vercel has to be updated to match. **This is the one piece with no viable home on Vercel**: Beldex
    publishes no `darwin-x86_64` build and Vercel runs no long-lived process. It
    runs on this machine through Colima today. Payment links are created against
    it for real, but **it cannot sync the chain yet**: the live testnet is on hard
