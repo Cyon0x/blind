@@ -1,6 +1,6 @@
 import { beldexConfig, ESCROW_WALLET_NAME } from "./config";
 import { chainReader } from "./chain";
-import { BdxWalletRpc, type PayoutPriority, type SubaddressTransfer } from "./wallet-rpc";
+import { BdxWalletRpc, newPaymentId, type PayoutPriority, type SubaddressTransfer } from "./wallet-rpc";
 
 /**
  * The Blind claim escrow, expressed as real wallet operations.
@@ -84,11 +84,14 @@ export class EscrowUnavailable extends Error {
 export async function allocateDepositTarget(label: string, wallet?: BdxWalletRpc): Promise<DepositTarget> {
   const client = requireWallet(wallet);
   const created = await client.createAddress(label);
-  const integrated = await client.makeIntegratedAddress(created.address);
+  // Beldex will not invent a payment id for us (see wallet-rpc.newPaymentId),
+  // so Blind mints one per payment and the deposit is labelled with it.
+  const requested = newPaymentId();
+  const integrated = await client.makeIntegratedAddress(created.address, requested);
   return {
     address: created.address,
     integratedAddress: integrated.integrated_address,
-    paymentId: integrated.payment_id,
+    paymentId: integrated.payment_id || requested,
     subaddressIndex: created.address_index,
   };
 }

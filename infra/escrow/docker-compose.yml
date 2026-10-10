@@ -22,8 +22,10 @@ services:
       --rpc-bind-ip 0.0.0.0 --rpc-bind-port 28081
       --confirm-external-bind
       --p2p-bind-ip 0.0.0.0 --p2p-bind-port 28080
-      --log-level 1
+      --log-level 3
       --out-peers 24 --in-peers 32
+      --add-peer 209.126.86.93:29090
+      --add-peer 209.126.86.93:29095
     volumes:
       - daemon-data:/data
     ports:
@@ -62,6 +64,17 @@ services:
       # spend escrowed funds; put an authenticated tunnel in front if the app is
       # somewhere else.
       - "127.0.0.1:29092:29092"
+
+  # Reaches the signer from wherever the app runs. A quick tunnel's hostname
+  # changes on restart, so BDX_WALLET_RPC_URL has to be updated when it does —
+  # the signer still requires BDX_WALLET_RPC_USER/PASSWORD on every request, so
+  # the URL alone moves no funds.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    depends_on:
+      - signer
+    command: tunnel --no-autoupdate --url http://signer:29092
 
 volumes:
   daemon-data:

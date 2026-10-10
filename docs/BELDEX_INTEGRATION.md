@@ -150,24 +150,36 @@ answer from a bootstrap node or an explorer as corroboration rather than proof.
 
 ## Escrow (beldex-wallet-rpc)
 
-**Testnet peer discovery is down as of 2026-10-10.** Beldex's testnet seed list
-is exactly two hosts — `test1.rpcnode.stream:29090` and
-`test2.rpcnode.stream:29090` (`src/p2p/net_node.inl`, `get_seed_nodes`) — and
-both answer ICMP while refusing connections on the P2P port: from this machine,
-from the Linux VM beside it, and from four independent external nodes, which
-report "Connection refused". Mainnet's seeds on `19090` connect from the same
-machine, so this is not a local firewall. A new node therefore cannot acquire
-peers, cannot sync the testnet chain, and cannot give a wallet anything to scan.
-The daemon in `infra/escrow/` runs and answers JSON-RPC, and will sync by itself
-once those seeds return; until then the escrow cannot be brought up on testnet
-by any amount of local setup. What would unblock it immediately is a live
-testnet peer address (`beldexd --add-peer <host:port>`), which Beldex would have
-to provide.
+**Why no released node can join testnet (measured 2026-10-10).** Testnet itself
+is alive: the official explorer answers `height ≈ 4,263,900`,
+`current_hf_version: 22`, release codename `Proto`. The newest published daemon
+cannot join it. `v7.0.4` is the tip of Beldex's `dev` branch, and its testnet
+fork table (`src/cryptonote_basic/hardfork.cpp`, `testnet_hard_forks`) ends at
+`hf20_bulletproof_plus` (height 3,262,180) — the live chain is two forks ahead.
 
-Public mainnet daemons do exist and are reachable
-(`http://publicnode1.rpcnode.stream:29095/json_rpc`,
-`http://publicnode2.rpcnode.stream:29095/json_rpc`), which is what makes a
-mainnet deployment possible and a testnet one currently impossible.
+A node whose fork schedule is behind does not simply warn; it is vetoed during
+the handshake. `cryptonote_protocol_handler::process_payload_sync_data` compares
+the version it computes for the peer's height with the version the peer claims
+and returns false when they differ, logging *nothing* at the default verbosity.
+That is exactly what we see: testnet peers accept TCP, reach
+`COMMAND_HANDSHAKE`, and are then dropped (`LEVIN_ERROR_CONNECTION_DESTROYED`,
+or `process_payload_sync_data returned false`). No tag up to `v7.0.4`, and not
+`master`, defines a testnet fork past hf20 — so this is not a local setup
+problem and `--add-peer` cannot fix it. It needs a Beldex release whose testnet
+schedule matches the live chain.
+
+Two earlier readings this replaces, kept because the reasoning is instructive:
+
+- the testnet *seeds* (`test1.rpcnode.stream:29090`,
+  `test2.rpcnode.stream:29090`) do refuse the P2P port, but they are not the
+  only testnet peers. Reachable ones exist (`209.126.86.93:29090`, plus hosts
+  learned over the peerlist such as `154.26.139.105:29090`,
+  `207.244.244.33:29090`) and all of them reject the handshake for the version
+  reason above.
+- `209.126.86.93:29095` is a **mainnet** node: a mainnet daemon handshakes with
+  it and starts syncing (observed to height 2,992,403 against a live target).
+  So the local network path is fine — the problem is the testnet fork table, not
+  reachability.
 
 The escrow service is deliberately *not* part of the web app:
 
@@ -182,16 +194,35 @@ The reference for txids is `get_transfer_by_txid`; reconciliation after an
 ambiguous send (`reconcileOutgoing`) searches `get_transfers` for a matching
 amount and destination rather than sending a second transfer.
 
-**Not verified on this machine.** Beldex's published release assets are
-`beldex-linux-x86_64-*`, `beldex-mac-silicon-*` and `beldex-win-x64-*` — there is
-no Intel-mac build, and the machine this was written on is an Intel Mac with no
-Docker — so every escrow operation in this repository is implemented but has not
-been exercised against a live wallet. `infra/escrow/` is the process to run it
-on a host that can: a static daemon and signer, and a one-shot restore that reads
-the escrow seed on stdin and never writes it down. Blind therefore reports
-`escrow_unavailable`, creates no claim that appears funded, and the doctor prints
-`skip` for each wallet check. This is a hosting blocker, not a code path that has
-been faked.
+**What is verified, and what is not (2026-10-10).** The signer stack runs here:
+a Colima x86-64 Linux VM (Beldex ships no `darwin-x86_64` build) holds `beldexd`
+and `beldex-wallet-rpc`, the escrow wallet is restored from the operator's seed —
+read once through a hidden stdin prompt, never in argv, never in a file, never
+logged — and `npm run bdx:doctor` against it reports **15 ok · 1 skipped · 0
+failed**, including `create_address` and `make_integrated_address`, which are the
+two calls a payment link is made of. Payment creation therefore really does
+create wallet state.
+
+Settlement is **not** verified, for the reason above: with no synced chain the
+wallet has scanned nothing (its `get_height` is 1), so it cannot see a deposit or
+spend one, and no funded payment has completed end to end. Blind reports that
+honestly — `escrow.reachable` and `escrow.walletOpen` are true while
+`escrow.height` is far behind the explorer's height — rather than inventing a
+deposit or a confirmation.
+
+Three Beldex-specific differences from Monero's wallet RPC, each of which broke
+something here and is now regression-tested (`tests/escrow-deposit-target.test.ts`):
+
+- `make_integrated_address` **requires** an explicit `payment_id`; Monero invents
+  one. Beldex answers `Payment ID shouldn't be left unspecified` — which failed
+  every payment creation. Blind now mints a random 8-byte id per payment
+  (`newPaymentId()`) and passes it; that id is also the deposit's label in
+  `get_bulk_payments`.
+- `open_wallet` / `restore_deterministic_wallet` take a filename **relative to**
+  `--wallet-dir`. An absolute path is rejected as `Invalid filename`.
+- `--disable-rpc-login` is a bare switch, so `--disable-rpc-login=false` aborts
+  startup with a usage dump instead of starting the server. Passing
+  `--rpc-login user:pass` is sufficient to require auth.
 
 ## Wallet provisioning
 

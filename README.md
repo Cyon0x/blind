@@ -149,11 +149,13 @@ lists every variable with what it buys you. The four that matter most:
    `beldex-wallet-rpc`, plus the one-shot wallet restore, and `tunnel.sh` opens
    the way in. **This is the one piece with no viable home on Vercel**: Beldex
    publishes no `darwin-x86_64` build and Vercel runs no long-lived process. It
-   runs on this machine through Colima today, but **cannot sync yet** — Beldex's
-   testnet seed nodes refuse their P2P port (see
-   [docs/BELDEX_INTEGRATION.md](docs/BELDEX_INTEGRATION.md)), so no chain, no
-   wallet scan, no escrow. Honest "escrow unavailable" states stand in until
-   that is fixed upstream; a live testnet peer address would unblock it at once.
+   runs on this machine through Colima today. Payment links are created against
+   it for real, but **it cannot sync the chain yet**: the live testnet is on hard
+   fork 22 while Beldex's newest released daemon defines no testnet fork past
+   hf20, so it refuses every peer's handshake (see
+   [docs/BELDEX_INTEGRATION.md](docs/BELDEX_INTEGRATION.md)). Until Beldex ships
+   a matching daemon the escrow can create but not settle a payment, and the app
+   says exactly that instead of inventing a deposit.
 6. Check the deployment: `curl $APP_URL/api/health` and `npm run bdx:doctor`.
 
 ## Known limitations
@@ -163,12 +165,16 @@ lists every variable with what it buys you. The four that matter most:
   makes that window explicit: one fresh subaddress per payment, a payout only ever
   to the destination the claim recorded, at least an hour's grace before a refund,
   and a hot-balance cap. It is custody, and it is documented rather than hidden.
-- **Escrow is blocked on Beldex's testnet peers.** The signer stack runs here
-  (Colima + `infra/escrow/`), but Beldex's only two testnet seed hosts refuse
-  connections on their P2P port — verified independently — so no new node can
-  sync testnet. Blind Pay therefore reports `escrow_unavailable` on this
-  deployment, and the payment lifecycle beyond deposit detection is **untested
-  against a real wallet** until that is fixed.
+- **Escrow can create payments but cannot settle them yet.** The signer stack
+  runs here (Colima + `infra/escrow/` + a cloudflared tunnel), the escrow wallet
+  is restored from the operator's seed, and `npm run bdx:doctor` is green — so a
+  payment link is genuine wallet state (`create_address` +
+  `make_integrated_address`). Chain access is what is missing: the live testnet
+  is on hard fork 22, Beldex's newest released daemon defines no testnet fork
+  past hf20, and it therefore refuses every peer's handshake and cannot sync.
+  With nothing to scan, the escrow cannot confirm or spend a deposit, so **no
+  funded payment has completed end to end**. Nothing is faked meanwhile: a
+  deposit that has not been seen is reported as unseen.
 - **Testnet has no public daemon.** Beldex publishes a testnet chain and the
   explorer that reads it, but no testnet daemon. Blind therefore takes settlement
   evidence from that explorer (untrusted, source named) and swaps to a daemon the

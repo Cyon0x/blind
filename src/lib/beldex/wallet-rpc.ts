@@ -12,6 +12,21 @@ import { beldexConfig, ESCROW_ACCOUNT_INDEX, WALLET_RPC_PASSWORD, WALLET_RPC_USE
  * file uses against the live wallet before Blind will offer escrow services.
  */
 
+/**
+ * An 8-byte payment id, in the 16-hex-character form the wallet wants.
+ *
+ * Monero's `make_integrated_address` invents one when the caller omits it;
+ * Beldex refuses the call outright ("Payment ID shouldn't be left unspecified"),
+ * so Blind mints the id itself and keeps it with the payment. It is the deposit's
+ * label: the integrated address the payer is given encodes it, and
+ * `get_bulk_payments` is asked for it when looking for the deposit.
+ */
+export function newPaymentId(): string {
+  const bytes = new Uint8Array(8);
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export type WalletRpcOptions = {
   url: string;
   user?: string | null;
@@ -158,10 +173,10 @@ export class BdxWalletRpc {
     });
   }
 
-  makeIntegratedAddress(standardAddress: string, paymentId?: string) {
+  makeIntegratedAddress(standardAddress: string, paymentId: string) {
     return this.call<{ integrated_address: string; payment_id: string }>("make_integrated_address", {
       standard_address: standardAddress,
-      ...(paymentId ? { payment_id: paymentId } : {}),
+      payment_id: paymentId,
     });
   }
 

@@ -21,15 +21,19 @@ NETFLAG="--testnet"
 [ "$BDX_NETWORK" = "mainnet" ] && NETFLAG="--mainnet"
 [ "$BDX_NETWORK" = "devnet" ] && NETFLAG="--devnet"
 
-beldex-wallet-rpc \
+# --rpc-login alone turns authentication on; --disable-rpc-login is a bare
+# switch in beldex-wallet-rpc and rejects "=false", which used to abort startup.
+set -- beldex-wallet-rpc \
   "$NETFLAG" \
   --non-interactive \
   --daemon-address "$BDX_DAEMON_ADDRESS" \
   --rpc-bind-ip 0.0.0.0 --rpc-bind-port "$BDX_WALLET_RPC_PORT" --confirm-external-bind \
   --wallet-dir /wallet \
   --rpc-login "${BDX_WALLET_RPC_USER}:${BDX_WALLET_RPC_PASSWORD}" \
-  --disable-rpc-login=false \
-  --log-level 1 &
+  --log-level 1
+# Tunnelled daemons behind the same basic auth the app uses.
+[ -n "${BDX_DAEMON_LOGIN:-}" ] && set -- "$@" --daemon-login "$BDX_DAEMON_LOGIN"
+"$@" &
 RPC_PID=$!
 trap 'kill -TERM "$RPC_PID" 2>/dev/null || true' INT TERM
 
@@ -64,7 +68,7 @@ PY
 )"
 }
 
-if open_wallet "/wallet/${BDX_ESCROW_WALLET}" >/dev/null 2>&1; then
+if open_wallet "${BDX_ESCROW_WALLET}" >/dev/null 2>&1; then
   echo "escrow wallet ${BDX_ESCROW_WALLET} open"
 else
   echo "escrow wallet ${BDX_ESCROW_WALLET} is not open yet." >&2

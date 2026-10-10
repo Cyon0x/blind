@@ -13,7 +13,7 @@
  * Nothing secret is printed: addresses and heights are public, keys are not.
  */
 import { beldexConfig, escrowConfigured, ESCROW_WALLET_NAME } from "../../src/lib/beldex/config.ts";
-import { BdxWalletRpc } from "../../src/lib/beldex/wallet-rpc.ts";
+import { BdxWalletRpc, newPaymentId } from "../../src/lib/beldex/wallet-rpc.ts";
 import { chainReader, chainSource } from "../../src/lib/beldex/chain.ts";
 import { decodeAddress, encodeAddress } from "../../src/lib/beldex/address.ts";
 import { NETTYPE_PREFIXES } from "../../src/lib/beldex/nettype.ts";
@@ -126,7 +126,7 @@ if (!escrowConfigured()) {
       const address = await wallet.getAddress();
       const decoded = decodeAddress(address.address, config.nettype);
       if (!decoded.ok) throw new Error(`the wallet returned an address we cannot decode: ${decoded.reason}`);
-      return `${decoded.kind} address, ${address.address.length} characters`;
+      return `${decoded.decoded.kind} address, ${address.address.length} characters`;
     });
     await check(
       "wallet: create_address (one fresh subaddress per payment)",
@@ -139,7 +139,7 @@ if (!escrowConfigured()) {
     );
     await check("wallet: make_integrated_address (one payment id per payment)", async () => {
       const base = await wallet.getAddress();
-      const integrated = await wallet.makeIntegratedAddress(base.address);
+      const integrated = await wallet.makeIntegratedAddress(base.address, newPaymentId());
       if (!integrated.payment_id || integrated.payment_id.length !== 16) throw new Error("no 8-byte payment id returned");
       const decoded = decodeAddress(integrated.integrated_address, config.nettype);
       if (!decoded.ok) throw new Error(`integrated address does not decode: ${decoded.reason}`);

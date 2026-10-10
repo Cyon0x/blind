@@ -39,7 +39,7 @@ if [ -z "${SEED:-}" ]; then
   exit 1
 fi
 
-BODY="$(SEED="$SEED" WALLET_PASSWORD="$WALLET_PASSWORD" WALLET="/wallet/$BDX_ESCROW_WALLET" HEIGHT="$BDX_RESTORE_HEIGHT" python3 -c '
+BODY="$(SEED="$SEED" WALLET_PASSWORD="$WALLET_PASSWORD" WALLET="$BDX_ESCROW_WALLET" HEIGHT="$BDX_RESTORE_HEIGHT" python3 -c '
 import json, os
 print(json.dumps({
     "jsonrpc": "2.0", "id": "0", "method": "restore_deterministic_wallet",
