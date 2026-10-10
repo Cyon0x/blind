@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Iris } from "@/components/Iris";
 import { SiteFooter, SiteHeader } from "@/components/Chrome";
@@ -27,37 +28,62 @@ export default async function LandingPage() {
       <SiteHeader signedIn={Boolean(session)} />
 
       <main id="main">
-        <section className="wrap-shell grid items-center gap-12 py-10 lg:grid-cols-[1.15fr_.85fr] lg:py-20">
-          <div className="stack gap-7">
-            <span className="label">Privacy payments · Beldex</span>
-            <h1 className="display text-[clamp(44px,7.2vw,86px)]">
-              Money that stays
-              <br />
-              latent until
-              <br />
-              someone claims it.
-            </h1>
-            <p className="muted max-w-[560px] text-[18px]">
-              Blind sends a payment as a link. The money waits in escrow, the recipient opens the link, and neither
-              side is handed the other&rsquo;s wallet address. Beldex hides the amounts on chain; Blind removes the
-              address exchange from the conversation.
-            </p>
-            <div className="flex flex-wrap items-center gap-4">
-              <Link href={session ? "/dashboard" : "/signin"} className="btn btn-primary">
-                {session ? "Open your dashboard" : "Start with Google or X"}
-              </Link>
-              <Link href="#how" className="btn btn-ghost">
-                How a payment moves
-              </Link>
+                <section className="hero" aria-labelledby="hero-title">
+          <div className="hero-media">
+            <div className="hero-shutter">
+              <Image
+                src="/blind-hero.jpg"
+                alt="Two iridescent hands holding a luminous eye whose pupil is a camera aperture"
+                fill
+                priority
+                sizes="100vw"
+                quality={88}
+                className="object-cover"
+              />
             </div>
-            <p className="faint max-w-[520px] text-[13px]">
-              Sign in with Google, with X, or with a Beldex wallet signature. Blind asks for no seed phrase, no view
-              key, and no private key, ever.
-            </p>
           </div>
+          <div className="hero-scrim" aria-hidden="true" />
 
-          <div className="relative flex justify-center">
-            <Iris state="developing" size={330} title="The Blind aperture: closed while a payment is private, open once it settles" />
+          <div className="wrap-shell hero-inner">
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+              <span className="label">Privacy payments · Beldex</span>
+              <span className="label">
+                {config.nettype} · {status.escrow === "configured" ? "signer live" : "signer not configured"}
+              </span>
+            </div>
+
+            <div>
+              <h1 id="hero-title" className="hero-word">
+                {"Blind".split("").map((letter, index) => (
+                  <span key={letter} className="hero-letter" style={{ animationDelay: `${160 + index * 90}ms` }}>
+                    {letter}
+                  </span>
+                ))}
+              </h1>
+              <p className="hero-rule">
+                <span className="label">Send · claim · settle</span>
+              </p>
+            </div>
+
+            <div className="hero-copy stack gap-5">
+              <p className="hero-lede">Send and receive payments with absolute privacy.</p>
+              <p className="muted hero-sub">
+                Protect your financial history. Send and receive digital cash on Beldex without exposing your balances
+                or transaction records. The recipient is never handed your wallet address; you are never handed theirs.
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link href={session ? "/dashboard" : "/signin"} className="btn btn-primary">
+                  Get started
+                </Link>
+                <Link href="#how" className="btn btn-ghost">
+                  See how a payment moves
+                </Link>
+              </div>
+              <p className="faint text-[13px]">
+                Google, X, or a Beldex wallet signature. Blind asks for no seed phrase, no view key and no private key
+                — it has no field for one.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -78,6 +104,22 @@ export default async function LandingPage() {
               ))}
             </div>
           </div>
+        </section>
+
+
+        <section className="wrap-shell grid-contact pt-8">
+          <Trust
+            title="No address exchange"
+            body="The payer never receives the recipient's wallet address, and the recipient never receives the payer's. A link carries a reference, not a wallet."
+          />
+          <Trust
+            title="No seed phrase, ever"
+            body="Blind has no field for a seed phrase, a view key or a private key. Signing in is a signature from your own wallet, not a secret handed over."
+          />
+          <Trust
+            title="Custody in the open"
+            body="A link anyone can claim needs somebody to hold a key while the payment is in flight. Blind names that custodian in writing before you use it."
+          />
         </section>
 
         <section id="how" className="wrap-shell grid gap-6 py-20 md:grid-cols-2">
@@ -164,10 +206,38 @@ export default async function LandingPage() {
             </p>
           </div>
         </section>
+
+        <section className="wrap-shell py-14">
+          <div className="panel stack items-start gap-6 !px-[clamp(24px,4.4vw,56px)]">
+            <span className="label">Ready when you are</span>
+            <h2 className="display max-w-[640px] text-[clamp(30px,4.6vw,52px)]">Send your first private payment.</h2>
+            <p className="muted max-w-[560px] text-[17px]">
+              Create a link that waits for whoever you send it to, or ask to be paid without publishing your address.
+              Neither side ends up holding the other&rsquo;s wallet history.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href={session ? "/dashboard" : "/signin"} className="btn btn-primary">
+                {session ? "Open your dashboard" : "Get started"}
+              </Link>
+              <Link href="#privacy" className="btn btn-ghost">
+                What Blind can see
+              </Link>
+            </div>
+          </div>
+        </section>
       </main>
 
       <SiteFooter nettype={status.nettype} daemon={status.daemon} escrow={status.escrow} />
     </>
+  );
+}
+
+function Trust({ title, body }: { title: string; body: string }) {
+  return (
+    <article className="panel stack gap-3">
+      <h2 className="display text-[22px]">{title}</h2>
+      <p className="muted text-[15px]">{body}</p>
+    </article>
   );
 }
 

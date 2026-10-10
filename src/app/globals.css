@@ -493,3 +493,234 @@ pre {
  * definition later in the file would beat `focus:not-sr-only` in the cascade,
  * leaving the skip link invisible while focused.
  */
+
+/* ------------------------------------------------------------------- hero */
+
+/*
+ * The first screen is one photograph: two iridescent hands holding an eye. It
+ * arrives through a focal-plane shutter that opens on load, and it is printed
+ * on the page's own darkroom ground (#0b0c0d), which is the photograph's own
+ * background — so the picture has no rectangle edge to give it away as "a hero
+ * image", only the perforations of the film it sits on.
+ */
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: clamp(28px, 7vh, 72px);
+  min-height: min(88svh, 900px);
+  padding-block: clamp(18px, 3.4vh, 34px) clamp(30px, 6vh, 64px);
+  /* The hero is a photograph, so it stays the darkroom whatever the rest of
+     the page has been switched to; otherwise a light theme would print dark
+     ink on a dark picture. */
+  --ink: #f2f1ed;
+  --ink-2: #a6a7a4;
+  --rule: rgba(242, 241, 237, 0.13);
+}
+
+.hero-media,
+.hero-scrim {
+  position: absolute;
+  inset: 0;
+}
+
+.hero-media {
+  z-index: -2;
+  overflow: hidden;
+}
+
+.hero-shutter {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(47% 0 47% 0);
+  animation: shutter 1500ms var(--ease-darkroom) 100ms both;
+}
+
+.hero-shutter img {
+  object-position: 50% 44%;
+  animation: hero-develop 2200ms var(--ease-darkroom) 100ms both;
+}
+
+/* The photograph is bright in the middle and black at the edges. The bright
+   part is the iris, which sits behind the masthead: it is held down to about
+   half strength so the name and the caption rule on top of it keep their
+   contrast, and the floor goes to solid ground so the caption prints on black
+   instead of on the picture. */
+.hero-scrim {
+  z-index: -1;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(11, 12, 13, 0.94) 0%,
+      rgba(11, 12, 13, 0.46) 18%,
+      rgba(11, 12, 13, 0.52) 40%,
+      rgba(11, 12, 13, 0.8) 60%,
+      rgba(11, 12, 13, 0.92) 78%,
+      #0b0c0d 98%
+    ),
+    radial-gradient(120% 88% at 50% 44%, rgba(11, 12, 13, 0) 28%, rgba(11, 12, 13, 0.84) 100%);
+}
+
+/* Film perforations down both edges. The photograph is a frame; Blind is the
+   film it was shot on. */
+.hero::before,
+.hero::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  background-image: repeating-linear-gradient(180deg, var(--rule-strong) 0 9px, transparent 9px 24px);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.hero::before {
+  left: 0;
+}
+
+.hero::after {
+  right: 0;
+}
+
+.hero-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: clamp(24px, 6vh, 60px);
+  width: 100%;
+  flex: 1;
+}
+
+/* Masthead. Set in the display face at its heaviest, sized off the viewport so
+   it runs nearly the full column at every width — a poster title, because a
+   polite headline loses to a photograph. The 33svh term is the guard rail: on
+   a laptop with a short window the name grows with height, never past it. */
+.hero-word {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-variation-settings: "wdth" 116;
+  font-size: clamp(72px, 17vw, 208px);
+  font-size: min(28.5vw, 400px, 33svh);
+  line-height: 0.82;
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 60px rgba(11, 12, 13, 0.72), 0 1px 8px rgba(11, 12, 13, 0.4);
+  color: var(--ink);
+  margin: 0;
+}
+
+.hero-letter {
+  display: inline-block;
+  animation: hero-letter 1000ms var(--ease-darkroom) both;
+}
+
+.hero-rule {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  border-top: 1px solid var(--rule);
+  padding-top: 12px;
+  margin-top: clamp(10px, 1.6vh, 20px);
+  /* This one sits on the brightest part of the iridescent iris, where a grey
+     12px label disappears. It gets ink and a shadow instead. */
+  text-shadow: 0 1px 16px rgba(11, 12, 13, 0.9);
+}
+
+.hero .label {
+  color: var(--ink-2);
+}
+
+.hero-rule .label {
+  color: var(--ink);
+}
+
+.hero-lede {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-variation-settings: "wdth" 108;
+  font-size: clamp(24px, 3.3vw, 42px);
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  max-width: 30ch;
+  color: var(--ink);
+}
+
+.hero-sub {
+  font-size: clamp(15px, 1.35vw, 18px);
+  line-height: 1.5;
+  max-width: 58ch;
+}
+
+.hero-copy {
+  width: 100%;
+  /* A photograph is not a background: a soft shadow is what keeps a paragraph
+     legible over the bright half of it without putting it in a card. */
+  text-shadow: 0 1px 22px rgba(11, 12, 13, 0.78);
+}
+
+@keyframes shutter {
+  from {
+    clip-path: inset(47% 0 47% 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+@keyframes hero-develop {
+  from {
+    filter: blur(22px) saturate(0.35) brightness(0.7);
+    transform: scale(1.08);
+  }
+  to {
+    filter: none;
+    transform: none;
+  }
+}
+
+@keyframes hero-letter {
+  from {
+    opacity: 0;
+    filter: blur(14px);
+    transform: translateY(0.16em) scaleY(0.9);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    min-height: auto;
+    gap: 30px;
+    padding-block: 16px 36px;
+  }
+  .hero-shutter img {
+    object-position: 50% 42%;
+  }
+  .hero::before,
+  .hero::after {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-shutter,
+  .hero-shutter img,
+  .hero-letter {
+    animation: none;
+    clip-path: none;
+    filter: none;
+    transform: none;
+    opacity: 1;
+  }
+}

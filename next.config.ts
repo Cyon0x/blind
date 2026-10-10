@@ -13,6 +13,11 @@ const scriptSrc = isProduction
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@electric-sql/pglite", "@neondatabase/serverless"],
+  images: {
+    // 88 is the only non-default quality the product asks for: the hero
+    // photograph is smooth iridescent gradient, and at the default 75 it bands.
+    qualities: [75, 88],
+  },
   async headers() {
     return [
       {

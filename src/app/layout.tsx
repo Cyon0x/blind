@@ -14,13 +14,13 @@ export const metadata: Metadata = {
     template: "%s · Blind",
   },
   description:
-    "Blind is a payment app on Beldex. Send someone money they can claim with a link, or request payment without publishing your wallet address.",
+    "Protect your financial history. Send and receive digital cash on Beldex without exposing your balances or transaction records.",
   applicationName: "Blind",
   referrer: "strict-origin-when-cross-origin",
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Blind: private payments on Beldex",
-    description: "Latent until claimed. Private payments and payment requests on Beldex.",
+    title: "Blind: send and receive payments with absolute privacy",
+    description: "Private payments and payment requests on Beldex.",
     type: "website",
   },
 };
