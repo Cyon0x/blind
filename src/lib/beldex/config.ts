@@ -78,3 +78,5 @@ export function beldexStatus() {
     explorerUrl: config.explorerUrl,
   };
 }
+export const DAEMON_USER = () => env("BDX_DAEMON_USER");
+export const DAEMON_PASSWORD = () => env("BDX_DAEMON_PASSWORD");

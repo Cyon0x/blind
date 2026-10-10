@@ -1,4 +1,4 @@
-import { beldexConfig } from "./config";
+import { beldexConfig, DAEMON_PASSWORD, DAEMON_USER } from "./config";
 import type { BdxNettype } from "./nettype";
 
 /**
@@ -55,16 +55,23 @@ const DEFAULT_TIMEOUT_MS = 12_000;
 export class BdxDaemon {
   private readonly url: string;
   private readonly timeoutMs: number;
+  private readonly authHeader: string | null;
   private id = 0;
 
-  constructor(url: string, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  constructor(url: string, timeoutMs = DEFAULT_TIMEOUT_MS, credentials?: { user: string; password: string } | null) {
     this.url = url;
     this.timeoutMs = timeoutMs;
+    // A node behind a tunnel is a node anyone can reach, so it may be started
+    // with `--rpc-login`; the credentials travel as basic auth on every call.
+    this.authHeader = credentials ? `Basic ${Buffer.from(`${credentials.user}:${credentials.password}`).toString("base64")}` : null;
   }
 
   static fromEnv(): BdxDaemon | null {
     const config = beldexConfig();
-    return config.daemonUrl ? new BdxDaemon(config.daemonUrl) : null;
+    if (!config.daemonUrl) return null;
+    const user = DAEMON_USER();
+    const password = DAEMON_PASSWORD();
+    return new BdxDaemon(config.daemonUrl, DEFAULT_TIMEOUT_MS, user && password ? { user, password } : null);
   }
 
   private async call<T>(method: string, params?: Record<string, unknown>): Promise<T> {
@@ -74,7 +81,10 @@ export class BdxDaemon {
     try {
       const response = await fetch(this.url, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(this.authHeader ? { authorization: this.authHeader } : {}),
+        },
         body: JSON.stringify({ jsonrpc: "2.0", id: String(this.id), method, params: params ?? {} }),
         signal: controller.signal,
         cache: "no-store",

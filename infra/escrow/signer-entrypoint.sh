@@ -3,6 +3,12 @@
 # the app posting into a wallet-rpc that has nothing open.
 set -eu
 
+# The image carries both binaries; an explicit command runs instead of the
+# signer's default startup, so beldexd can use the same image.
+if [ "$#" -gt 0 ]; then
+  exec "$@"
+fi
+
 : "${BDX_NETWORK:?set BDX_NETWORK (testnet)}"
 : "${BDX_WALLET_RPC_USER:?set BDX_WALLET_RPC_USER}"
 : "${BDX_WALLET_RPC_PASSWORD:?set BDX_WALLET_RPC_PASSWORD}"

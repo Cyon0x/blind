@@ -13,15 +13,24 @@ services:
       args:
         BDX_VERSION: ${BDX_VERSION:-v7.0.4}
     restart: unless-stopped
+    # The image's default entrypoint is the signer's; the daemon is the other
+    # binary in the same image, so run it directly.
+    entrypoint: ["/usr/local/bin/beldexd"]
     command: >
-      beldexd --testnet --non-interactive
+      --testnet --non-interactive
       --data-dir /data
       --rpc-bind-ip 0.0.0.0 --rpc-bind-port 28081
+      --confirm-external-bind
       --p2p-bind-ip 0.0.0.0 --p2p-bind-port 28080
       --log-level 1
       --out-peers 24 --in-peers 32
     volumes:
       - daemon-data:/data
+    ports:
+      # Loopback only. The signer reaches the daemon over the compose network;
+      # this bind exists so a tunnel can offer the app a *trusted* chain source
+      # instead of a third-party explorer.
+      - "127.0.0.1:28081:28081"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS -X POST http://127.0.0.1:28081/json_rpc -H 'content-type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":\"0\",\"method\":\"get_info\"}' >/dev/null || exit 1"]
       interval: 30s

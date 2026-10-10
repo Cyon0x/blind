@@ -150,6 +150,25 @@ answer from a bootstrap node or an explorer as corroboration rather than proof.
 
 ## Escrow (beldex-wallet-rpc)
 
+**Testnet peer discovery is down as of 2026-10-10.** Beldex's testnet seed list
+is exactly two hosts — `test1.rpcnode.stream:29090` and
+`test2.rpcnode.stream:29090` (`src/p2p/net_node.inl`, `get_seed_nodes`) — and
+both answer ICMP while refusing connections on the P2P port: from this machine,
+from the Linux VM beside it, and from four independent external nodes, which
+report "Connection refused". Mainnet's seeds on `19090` connect from the same
+machine, so this is not a local firewall. A new node therefore cannot acquire
+peers, cannot sync the testnet chain, and cannot give a wallet anything to scan.
+The daemon in `infra/escrow/` runs and answers JSON-RPC, and will sync by itself
+once those seeds return; until then the escrow cannot be brought up on testnet
+by any amount of local setup. What would unblock it immediately is a live
+testnet peer address (`beldexd --add-peer <host:port>`), which Beldex would have
+to provide.
+
+Public mainnet daemons do exist and are reachable
+(`http://publicnode1.rpcnode.stream:29095/json_rpc`,
+`http://publicnode2.rpcnode.stream:29095/json_rpc`), which is what makes a
+mainnet deployment possible and a testnet one currently impossible.
+
 The escrow service is deliberately *not* part of the web app:
 
 - one **fresh subaddress per payment** (`create_address`, labelled

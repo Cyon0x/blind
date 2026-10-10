@@ -16,24 +16,36 @@ A Vercel function cannot be the signer: it has no persistent disk, so it cannot
 keep a synced wallet, and it would mean shipping the escrow spend key into the
 app's own environment. The signer is deliberately a separate process.
 
-## Status: prepared, not yet run
+## Status: running, and blocked on Beldex's testnet peers
 
-**Nothing in this directory has been executed.** The machine this was written on
-is an Intel Mac with no Docker, and Beldex publishes `beldex-linux-x86_64` and
-`beldex-mac-silicon` builds only — there is no Intel-mac build — so there was no
-host here to run it on. It is written from Beldex's published release layout and
-its wallet-RPC guide, which is Monero-CLI compatible (`--wallet-dir`,
-`--rpc-login`, `restore_deterministic_wallet`). Treat the first run as a first
-run, and let `npm run bdx:doctor` be the judge.
+The stack below now runs on this machine: Colima (Linux VM, native x86_64 — Beldex
+ships `beldex-linux-x86_64` and `beldex-mac-silicon` only, and this is an Intel
+Mac), the image built from Beldex's `v7.0.4` release, and the testnet daemon
+answering JSON-RPC on `127.0.0.1:28081`.
 
-It also needs a **reachable testnet daemon**, which is included here because
-Beldex publishes no public one: the `daemon` service syncs its own copy of the
-testnet chain (~8 GB and counting — check
-`https://testnet.beldex.dev/api/networkinfo` for the current size).
+**It cannot sync, because Beldex's testnet seed nodes are down.** The testnet
+seed list is exactly two hosts (`test1.rpcnode.stream:29090`,
+`test2.rpcnode.stream:29090`, from `src/p2p/net_node.inl`). Both reply to ICMP
+and refuse the P2P port — "Connection refused" from four independent external
+checks, not just from here — while mainnet's seeds on `19090` connect from this
+same machine. With no peers there is no chain, so there is nothing for a wallet
+to scan and the escrow cannot come up on testnet however much local setup is
+correct. The daemon keeps retrying and will sync by itself when those seeds
+return; a live testnet peer address would unblock it immediately
+(`--add-peer <host:port>`).
+
+The wallet-RPC half is therefore still **unverified against a live wallet**.
+`npm run bdx:doctor` is the judge once the chain is there.
 
 ## Run it
 
 Requires Docker on the host (any Linux box, or Docker Desktop / Colima on a Mac).
+On this Intel Mac the host is Colima, driven with `vz`:
+
+```bash
+brew install colima docker cloudflared
+colima start --vm-type vz --cpu 4 --memory 6 --disk 60
+```
 
 ```bash
 cd infra/escrow

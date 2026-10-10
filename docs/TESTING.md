@@ -89,9 +89,13 @@ The **escrow** half is the workflow below. It needs a Linux (or macOS-arm) host,
 because that is what `beldex-wallet-rpc` ships for, and a testnet daemon, because
 Beldex publishes none publicly. That is what preserves Blind's custody design:
 the signer must be a process you run and can watch, never something a Vercel
-function holds. `infra/escrow/` packages both processes as a compose file —
-**written from Beldex's release layout and wallet-RPC guide, and not yet run
-anywhere** (no Intel-mac build, no Docker on the machine it was written on).
+function holds. `infra/escrow/` packages both processes as a compose file and
+runs on Colima (a Linux VM — Beldex ships no Intel-mac build): the daemon starts
+and answers JSON-RPC. **It cannot sync**: Beldex's two testnet seed hosts refuse
+their P2P port (verified from here, from the VM, and from four independent
+external nodes on 2026-10-10, while mainnet seeds connect), so a new node cannot
+get peers. Nothing has been verified against a live wallet yet, and no local
+setup fixes that.
 
 1. **Get a node and a wallet.**
    ```bash
