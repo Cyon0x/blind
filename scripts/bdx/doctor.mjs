@@ -15,6 +15,7 @@
 import { beldexConfig, escrowConfigured, ESCROW_WALLET_NAME } from "../../src/lib/beldex/config.ts";
 import { BdxWalletRpc, newPaymentId } from "../../src/lib/beldex/wallet-rpc.ts";
 import { chainReader, chainSource } from "../../src/lib/beldex/chain.ts";
+import { allocateDepositTarget } from "../../src/lib/beldex/escrow.ts";
 import { decodeAddress, encodeAddress } from "../../src/lib/beldex/address.ts";
 import { NETTYPE_PREFIXES } from "../../src/lib/beldex/nettype.ts";
 
@@ -137,13 +138,25 @@ if (!escrowConfigured()) {
       },
       { optional: true }
     );
-    await check("wallet: make_integrated_address (one payment id per payment)", async () => {
+    // The exact calls creating a payment makes — not a stand-in for them.
+    // Beldex rejects an integrated address built from a subaddress
+    // ("Subaddress shouldn't be used"), so deposit targets are subaddresses and
+    // the deposit is matched by destination.
+    await check("escrow: allocate a deposit destination (what creating a payment does)", async () => {
+      const target = await allocateDepositTarget(`blind:doctor:${Date.now()}`);
+      const decoded = decodeAddress(target.address, config.nettype);
+      if (!decoded.ok) throw new Error(`the deposit address does not decode: ${decoded.reason}`);
+      if (typeof target.subaddressIndex !== "number") throw new Error("no subaddress index returned");
+      if (target.paymentId !== null) throw new Error("a subaddress cannot carry a payment id");
+      return `${decoded.decoded.kind} destination, subaddress index ${target.subaddressIndex}`;
+    });
+    await check("wallet: make_integrated_address on the standard address", async () => {
       const base = await wallet.getAddress();
       const integrated = await wallet.makeIntegratedAddress(base.address, newPaymentId());
       if (!integrated.payment_id || integrated.payment_id.length !== 16) throw new Error("no 8-byte payment id returned");
       const decoded = decodeAddress(integrated.integrated_address, config.nettype);
       if (!decoded.ok) throw new Error(`integrated address does not decode: ${decoded.reason}`);
-      return `payment id ${integrated.payment_id.slice(0, 8)}…`;
+      return `payment id ${integrated.payment_id.slice(0, 8)}… (Beldex refuses a subaddress here)`;
     });
     await check("wallet: get_transfers (deposit detection)", async () => {
       const transfers = await wallet.getTransfers({ incoming: true, filterByHeight: false });

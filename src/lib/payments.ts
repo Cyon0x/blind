@@ -249,7 +249,7 @@ export async function refreshFunding(payment: PaymentRow): Promise<FundingRefres
   let deposit;
   try {
     deposit = await findDeposit({
-      paymentId: payment.deposit_payment_id ?? "",
+      paymentId: payment.deposit_payment_id,
       subaddressIndex: payment.deposit_subaddress_index,
       minBlockHeight: 0,
     });

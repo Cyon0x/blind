@@ -1,29 +1,33 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { allocateDepositTarget } from "@/lib/beldex/escrow";
+import { allocateDepositTarget, findDeposit } from "@/lib/beldex/escrow";
 import { BdxWalletRpc, newPaymentId } from "@/lib/beldex/wallet-rpc";
 
-const ADDRESS =
+const SUBADDRESS =
   "9vPQ7kt4LCy4sUFo7McuCwSPJ2WdjaVrPA5p1Gvtp6vPi5cde5risUAXNLZZvw52PLi17TKyeNXbFaQu1vB1xu3e21k4JSR";
-const INTEGRATED =
-  "A6658ZhYwUV4sUFo7McuCwSPJ2WdjaVrPA5p1Gvtp6vPi5cde5risUAXNLZZvw52PLi17TKyeNXbFaQu1vB1xu3e2LebbS7Utmk1vcK3AJ";
 
-/** Records what the escrow asks the wallet for, and answers the way Beldex does. */
-function stubWallet() {
-  const bodies: Array<{ method: string; params: Record<string, unknown> }> = [];
+type Call = { method: string; params: Record<string, unknown> };
+
+/** Answers the way beldex-wallet-rpc does, and records what escrow asked for. */
+function stubWallet(transfers: unknown[] = []) {
+  const calls: Call[] = [];
   vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(String(init.body)) as { method: string; params: Record<string, unknown> };
-    bodies.push(body);
+    const call = JSON.parse(String(init.body)) as Call;
+    calls.push(call);
     const result =
-      body.method === "create_address"
-        ? { address: ADDRESS, address_index: 7 }
-        : { integrated_address: INTEGRATED, payment_id: body.params.payment_id };
+      call.method === "create_address"
+        ? { address: SUBADDRESS, address_index: 4 }
+        : call.method === "get_transfers"
+          ? { in: transfers }
+          : call.method === "get_height"
+            ? { height: 100 }
+            : {};
     return {
       ok: true,
       status: 200,
       json: async () => ({ jsonrpc: "2.0", id: "0", result }),
     } as unknown as Response;
   });
-  return bodies;
+  return calls;
 }
 
 function wallet() {
@@ -32,34 +36,57 @@ function wallet() {
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe("escrow deposit targets", () => {
-  it("labels the deposit with a payment id, because Beldex rejects the call without one", async () => {
-    // Monero invents a payment id when a caller omits it; Beldex answers
-    // "Payment ID shouldn't be left unspecified" and the whole payment fails to
-    // be created. Regression guard for that.
-    const bodies = stubWallet();
+describe("escrow deposit destinations", () => {
+  it("hands out a fresh subaddress and never asks Beldex for an integrated address", async () => {
+    // Beldex answers "Subaddress shouldn't be used" if an integrated address is
+    // built from a subaddress, and a payment id can only ever encode the
+    // standard address. Creating a payment therefore allocates a subaddress and
+    // nothing else. Regression guard for that.
+    const calls = stubWallet();
 
     const target = await allocateDepositTarget("blind:pay:test", wallet());
 
-    const integrated = bodies.find((call) => call.method === "make_integrated_address");
-    expect(integrated).toBeDefined();
-    expect(integrated?.params.payment_id).toMatch(/^[0-9a-f]{16}$/);
-    expect(target.paymentId).toBe(integrated?.params.payment_id);
-    expect(target.integratedAddress).toBe(INTEGRATED);
-    expect(target.subaddressIndex).toBe(7);
+    expect(target.address).toBe(SUBADDRESS);
+    expect(target.integratedAddress).toBe(SUBADDRESS);
+    expect(target.paymentId).toBeNull();
+    expect(target.subaddressIndex).toBe(4);
+    expect(calls.map((call) => call.method)).toEqual(["create_address"]);
   });
 
-  it("mints a fresh id per payment, so deposits cannot be merged or confused", async () => {
-    const bodies = stubWallet();
+  it("counts only what landed on this payment's subaddress", async () => {
+    stubWallet([
+      { tx_hash: "aa", amount: "100", height: 95, confirmations: 6, subaddr_index: { major: 0, minor: 5 } },
+      { tx_hash: "bb", amount: "40", height: 92, confirmations: 9, subaddr_index: { major: 0, minor: 4 } },
+      { tx_hash: "cc", amount: "60", height: 90, confirmations: 11, subaddr_index: { major: 0, minor: 4 } },
+    ]);
 
-    await allocateDepositTarget("blind:pay:a", wallet());
-    await allocateDepositTarget("blind:pay:b", wallet());
+    const deposit = await findDeposit({ paymentId: null, subaddressIndex: 4 }, wallet());
 
-    const ids = bodies
-      .filter((call) => call.method === "make_integrated_address")
-      .map((call) => call.params.payment_id);
-    expect(ids).toHaveLength(2);
-    expect(ids[0]).not.toBe(ids[1]);
+    expect(deposit).not.toBeNull();
+    expect(deposit?.amountAtomic).toBe("100");
+    expect(deposit?.txHash).toBe("cc");
+    expect(deposit?.blockHeight).toBe(90);
+    // 100 (wallet height) - 90 + 1
+    expect(deposit?.confirmations).toBe(11);
+    expect(deposit?.paymentId).toBeNull();
+    expect(deposit?.claimable).toBe(true);
+  });
+
+  it("reports an unseen deposit as unseen rather than guessing", async () => {
+    stubWallet([{ tx_hash: "aa", amount: "5", height: 99, confirmations: 2, subaddr_index: { major: 0, minor: 9 } }]);
+
+    expect(await findDeposit({ paymentId: null, subaddressIndex: 4 }, wallet())).toBeNull();
+  });
+
+  it("holds a deposit back while its output is still locked", async () => {
+    stubWallet([
+      { tx_hash: "dd", amount: "5", height: 99, confirmations: 2, unlock_time: 1_000_000, subaddr_index: { minor: 4 } },
+    ]);
+
+    const deposit = await findDeposit({ paymentId: null, subaddressIndex: 4 }, wallet());
+
+    expect(deposit?.claimable).toBe(false);
+    expect(deposit?.reason).toMatch(/not unlocked/);
   });
 });
 

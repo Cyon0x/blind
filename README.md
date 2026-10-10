@@ -168,8 +168,8 @@ lists every variable with what it buys you. The four that matter most:
 - **Escrow can create payments but cannot settle them yet.** The signer stack
   runs here (Colima + `infra/escrow/` + a cloudflared tunnel), the escrow wallet
   is restored from the operator's seed, and `npm run bdx:doctor` is green — so a
-  payment link is genuine wallet state (`create_address` +
-  `make_integrated_address`). Chain access is what is missing: the live testnet
+  payment link is genuine wallet state (`create_address`, which is the whole of
+  what allocating a deposit target does on this chain). Chain access is what is missing: the live testnet
   is on hard fork 22, Beldex's newest released daemon defines no testnet fork
   past hf20, and it therefore refuses every peer's handshake and cannot sync.
   With nothing to scan, the escrow cannot confirm or spend a deposit, so **no

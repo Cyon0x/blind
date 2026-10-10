@@ -1,6 +1,6 @@
 import { beldexConfig, ESCROW_WALLET_NAME } from "./config";
 import { chainReader } from "./chain";
-import { BdxWalletRpc, newPaymentId, type PayoutPriority, type SubaddressTransfer } from "./wallet-rpc";
+import { BdxWalletRpc, type PayoutPriority, type SubaddressTransfer } from "./wallet-rpc";
 
 /**
  * The Blind claim escrow, expressed as real wallet operations.
@@ -36,8 +36,8 @@ export const ESCROW_CUSTODY_DISCLOSURE = {
     "the identity behind either wallet beyond the address itself",
   ],
   mitigations: [
-    "one fresh escrow subaddress per payment",
-    "a unique payment id per payment, so deposits cannot be confused or merged",
+    "one fresh escrow subaddress per payment, matched by destination so no two payments share an address",
+    "a per-payment audit trail: which subaddress was funded, at what height, and which payout settled it",
     "payout only to the destination recorded by the claim, never to an address supplied later by a payer",
     "escrow hot balance cap, checked before every payout",
   ],
@@ -45,8 +45,10 @@ export const ESCROW_CUSTODY_DISCLOSURE = {
 
 export type DepositTarget = {
   address: string;
+  /** Same as `address`: no payment id can ride on a subaddress, so there is no separate encoding. */
   integratedAddress: string;
-  paymentId: string;
+  /** Always null today; kept because a payer may attach one to the escrow's standard address. */
+  paymentId: string | null;
   subaddressIndex: number;
 };
 
@@ -55,7 +57,7 @@ export type DepositEvidence = {
   amountAtomic: string;
   blockHeight: number | null;
   confirmations: number;
-  paymentId: string;
+  paymentId: string | null;
   subaddressIndex: number | null;
   claimable: boolean;
   reason?: string;
@@ -84,14 +86,18 @@ export class EscrowUnavailable extends Error {
 export async function allocateDepositTarget(label: string, wallet?: BdxWalletRpc): Promise<DepositTarget> {
   const client = requireWallet(wallet);
   const created = await client.createAddress(label);
-  // Beldex will not invent a payment id for us (see wallet-rpc.newPaymentId),
-  // so Blind mints one per payment and the deposit is labelled with it.
-  const requested = newPaymentId();
-  const integrated = await client.makeIntegratedAddress(created.address, requested);
+  // A fresh destination per payment, and *only* that. Beldex refuses to build an
+  // integrated address from a subaddress ("Subaddress shouldn't be used"), and
+  // Monero can only encode a payment id into the account's standard address, so
+  // the two labels are mutually exclusive. Blind keeps the fresh destination —
+  // it is the property that matters — and matches the deposit by the subaddress
+  // it landed on. Subaddresses of one wallet are also not linkable to each other
+  // by an outside observer, which a payment id on one shared address would not
+  // be able to claim.
   return {
     address: created.address,
-    integratedAddress: integrated.integrated_address,
-    paymentId: integrated.payment_id || requested,
+    integratedAddress: created.address,
+    paymentId: null,
     subaddressIndex: created.address_index,
   };
 }
@@ -102,39 +108,49 @@ export async function allocateDepositTarget(label: string, wallet?: BdxWalletRpc
  * `claimable` additionally requires the wallet to have unlocked the output.
  */
 export async function findDeposit(
-  opts: { paymentId: string; subaddressIndex: number | null; minBlockHeight?: number; mergedPaymentId?: string },
+  opts: { paymentId?: string | null; subaddressIndex: number | null; minBlockHeight?: number; mergedPaymentId?: string },
   wallet?: BdxWalletRpc
 ): Promise<DepositEvidence | null> {
   const client = requireWallet(wallet);
-  const ids = [opts.paymentId];
-  if (opts.mergedPaymentId) ids.push(opts.mergedPaymentId);
-  const bulk = await client.getBulkPayments(ids, opts.minBlockHeight ?? 0);
-  const match = (bulk.payments ?? [])
-    .filter((payment) => ids.includes(payment.payment_id))
-    .sort((a, b) => (a.block_height ?? 0) - (b.block_height ?? 0));
+  const incoming = await client
+    .getTransfers({ incoming: true, filterByHeight: false, minHeight: opts.minBlockHeight })
+    .catch(() => ({ in: [] as SubaddressTransfer[] }));
+  const transfers = incoming.in ?? [];
+
+  // The destination *is* the label — see allocateDepositTarget. Anything that
+  // landed on this payment's subaddress is this payment's deposit; nothing else
+  // counts, however similar the amount.
+  let match: SubaddressTransfer[];
+  if (typeof opts.subaddressIndex === "number") {
+    match = transfers.filter((transfer) => transfer.subaddr_index?.minor === opts.subaddressIndex);
+  } else if (opts.paymentId) {
+    // Fallback for a payer who attached a payment id to the standard address.
+    const ids = [opts.paymentId];
+    if (opts.mergedPaymentId) ids.push(opts.mergedPaymentId);
+    const bulk = await client.getBulkPayments(ids, opts.minBlockHeight ?? 0);
+    const wanted = new Set(
+      (bulk.payments ?? []).filter((payment) => ids.includes(payment.payment_id)).map((payment) => payment.tx_hash)
+    );
+    match = transfers.filter((transfer) => wanted.has(transfer.tx_hash));
+  } else {
+    return null;
+  }
   if (match.length === 0) return null;
 
-  const total = match.reduce((sum, payment) => sum + BigInt(payment.amount), 0n);
-  const first = match[0];
+  const ordered = [...match].sort((a, b) => (a.height ?? 0) - (b.height ?? 0));
+  const first = ordered[0];
+  const total = ordered.reduce((sum, transfer) => sum + BigInt(transfer.amount), 0n);
   const height = await client.getHeight().catch(() => null);
-
-  const incoming = await client
-    .getTransfers({ incoming: true, accountIndex: undefined, filterByHeight: false })
-    .catch(() => ({ in: [] as SubaddressTransfer[] }));
-  const detail = (incoming.in ?? []).find((transfer) =>
-    match.some((payment) => payment.tx_hash === transfer.tx_hash)
-  );
-  const confirmations =
-    height !== null && detail?.height ? Math.max(0, height.height - detail.height + 1) : 0;
-  const locked = Boolean(detail && detail.unlock_time && detail.unlock_time > 0);
+  const confirmations = height !== null && first.height ? Math.max(0, height.height - first.height + 1) : 0;
+  const locked = Boolean(first.unlock_time && first.unlock_time > 0);
 
   return {
-    txHash: first.tx_hash,
+    txHash: first.tx_hash || first.txid,
     amountAtomic: total.toString(),
-    blockHeight: first.block_height ?? null,
+    blockHeight: first.height ?? null,
     confirmations,
-    paymentId: opts.paymentId,
-    subaddressIndex: detail?.subaddr_index?.minor ?? opts.subaddressIndex,
+    paymentId: opts.paymentId ?? null,
+    subaddressIndex: first.subaddr_index?.minor ?? opts.subaddressIndex,
     claimable: confirmations > 0 && !locked,
     reason: locked ? "the deposit is not unlocked yet" : undefined,
   };

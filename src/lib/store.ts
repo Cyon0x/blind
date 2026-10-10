@@ -410,7 +410,7 @@ export async function listPaymentsForUser(userId: string, limit = 100): Promise<
 
 export async function attachDepositTarget(
   paymentId: string,
-  target: { address: string; integratedAddress: string; paymentId: string; subaddressIndex: number }
+  target: { address: string; integratedAddress: string; paymentId: string | null; subaddressIndex: number }
 ): Promise<PaymentRow | null> {
   return one<PaymentRow>(
     `update payments

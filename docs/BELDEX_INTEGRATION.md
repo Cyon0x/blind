@@ -184,9 +184,11 @@ Two earlier readings this replaces, kept because the reasoning is instructive:
 The escrow service is deliberately *not* part of the web app:
 
 - one **fresh subaddress per payment** (`create_address`, labelled
-  `blind:pay:<reference>`), so deposits cannot be confused or merged;
-- a **unique integrated-address payment id per payment**
-  (`make_integrated_address`), which is what `get_bulk_payments` matches on;
+  `blind:pay:<reference>`), so no two payments share a destination and deposits
+  cannot be confused or merged;
+- the deposit is matched by **the subaddress it landed on** (`get_transfers`,
+  `subaddr_index.minor`) — not by amount and not by payment id, because a
+  payment id cannot be encoded into a subaddress at all;
 - payouts only via `transfer`, only to the destination recorded by the claim, and
   only after the hot-cap check in `escrowHealth()`.
 
@@ -213,11 +215,14 @@ deposit or a confirmation.
 Three Beldex-specific differences from Monero's wallet RPC, each of which broke
 something here and is now regression-tested (`tests/escrow-deposit-target.test.ts`):
 
-- `make_integrated_address` **requires** an explicit `payment_id`; Monero invents
-  one. Beldex answers `Payment ID shouldn't be left unspecified` — which failed
-  every payment creation. Blind now mints a random 8-byte id per payment
-  (`newPaymentId()`) and passes it; that id is also the deposit's label in
-  `get_bulk_payments`.
+- `make_integrated_address` **requires** an explicit `payment_id` (Monero invents
+  one) **and refuses a subaddress** (`Payment ID shouldn't be left unspecified`,
+  then `Subaddress shouldn't be used`). Both were hit for real: the first broke
+  the doctor's own check, the second broke creating a payment on the deployed
+  app. The two labels — a fresh destination and a payment id — are mutually
+  exclusive on this chain, so Blind keeps the fresh subaddress and drops the
+  payment id (`newPaymentId()` still exists for the standard-address call, and
+  `findDeposit` still honours a payment id when one is recorded).
 - `open_wallet` / `restore_deterministic_wallet` take a filename **relative to**
   `--wallet-dir`. An absolute path is rejected as `Invalid filename`.
 - `--disable-rpc-login` is a bare switch, so `--disable-rpc-login=false` aborts
