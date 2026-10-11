@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { post } from "@/lib/client";
 import { restoreGrant } from "@/lib/wallet-restore";
+import { parseNettype, sendWithWallet } from "@/lib/beldex/wallet-send";
 import { WalletContext, type Balance, type BeldexClient, type UseBeldex, type WalletPhase } from "@/lib/useBeldex";
 
 type SdkModule = typeof import("@bdxi/web3js");
@@ -21,6 +22,19 @@ function predicates(sdk: SdkModule | null) {
     isUnknownOutcome: (error: unknown) => Boolean(errors?.isUnknownOutcome(error)),
     isUnauthorized: (error: unknown) => Boolean(errors?.isUnauthorized(error)),
   };
+}
+
+/**
+ * The network the wallet says it is on. Only used to check a destination
+ * locally: a wallet that will not name its network still knows how to pay, so
+ * the send is never held up over a label.
+ */
+async function walletNettype(instance: BeldexClient) {
+  try {
+    return parseNettype((await instance.getNetwork()).nettype);
+  } catch {
+    return null;
+  }
 }
 
 async function readBalance(instance: BeldexClient): Promise<Balance> {
@@ -233,12 +247,13 @@ export function BeldexWalletProvider({ children }: { children: React.ReactNode }
         return { ok: false as const, error: "The Beldex Wallet extension is not installed.", unknownOutcome: false };
       }
       try {
-        const result = await instance.sendTransactionSafe({
+        const result = await sendWithWallet(instance, {
           to: input.to,
-          amount: input.amountAtomic,
+          amountAtomic: input.amountAtomic,
           idempotencyKey: input.idempotencyKey,
+          nettype: await walletNettype(instance),
         });
-        if (result.status === "confirmed" && result.txHash) {
+        if (result.status === "confirmed" && typeof result.txHash === "string" && result.txHash) {
           return { ok: true as const, txHash: result.txHash, fee: String(result.fee ?? "0") };
         }
         return {

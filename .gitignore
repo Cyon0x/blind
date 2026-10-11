@@ -12,3 +12,7 @@ BDX_SECRETS.env
 infra/escrow/.env
 infra/escrow/secrets/
 .env*
+
+# The tunnel container writes the hostname Cloudflare gave it here, through a
+# mount, so `vercel-tunnel-url.sh` can read it back. Per-machine state.
+infra/escrow/.tunnel/

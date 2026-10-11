@@ -98,10 +98,27 @@ user's funds, which the design rejects. See *Wallet provisioning* below.
 Blind never signs anything on a user's behalf.
 
 - **User sends** (funding a payment, paying a request): the browser asks the
-  wallet extension to sign, using `sendTransactionSafe({ to, amount,
-  idempotencyKey })`. The idempotency key is the payment reference, so a retry
-  cannot pay twice. A send that does not return a definite result is reported to
-  the user as **unknown outcome** and never resent automatically.
+  wallet extension to sign, through `sendWithWallet()` in
+  `src/lib/beldex/wallet-send.ts`. The idempotency key is the payment reference,
+  so a retry cannot pay twice. A send that does not return a definite result is
+  reported to the user as **unknown outcome** and never resent automatically.
+
+  That module exists because `@bdxi/web3js@1.0.1` cannot pay a testnet address.
+  Its `sendTransaction()` validates the destination with `checkAddress()`, which
+  admits only strings starting with `bx` — the *mainnet* standard prefix — and
+  throws `invalid "to" address: must start with "bx"` for anything else. On
+  testnet a standard address begins with `9` and the escrow's per-payment
+  destination is a *subaddress* (prefix 63, rendering as `B…`), so every address
+  Blind can legitimately pay was refused before the request reached the wallet.
+  The SDK's README says the send path is tested against a funded **testnet**
+  wallet, so the guard is the defect, not the network; 1.0.1 is the latest
+  release and offers no nettype setting. Blind therefore asks the question with
+  its own codec (`decodeAddress`, which is nettype-aware and already checksums
+  every address in the UI) and speaks the same `bdx_sendTransaction` wire method
+  through the SDK's transport. The wallet remains the authority — it is what
+  signs, and it knows which chain it is on. Nothing else is given up: the same
+  idempotency key, the same unknown-outcome semantics, and a replay rather than a
+  second approval when the wallet reports the key already in flight.
 - **Escrow sends** (payouts and refunds) are signed by `beldex-wallet-rpc`, which
   the app reaches over HTTP. Blind never has the escrow's key material in-process;
   it calls `transfer`.

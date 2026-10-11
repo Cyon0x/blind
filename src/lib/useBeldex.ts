@@ -11,6 +11,11 @@ import { createContext, useContext } from "react";
  * that times out locally is reported as UNKNOWN OUTCOME rather than retried
  * (a retry is only ever done with the same idempotency key).
  *
+ * One deliberate exception: the send path talks to the wallet through the SDK's
+ * transport rather than its `sendTransactionSafe()`, because that method
+ * refuses every testnet address. The reasoning and the guarantees kept are in
+ * `@/lib/beldex/wallet-send`.
+ *
  * The state lives in `<BeldexWalletProvider>`, mounted once in the root layout,
  * and is read back through this context. It used to live in the hook itself,
  * which meant every component that called `useBeldex()` created its own wallet
@@ -60,11 +65,14 @@ export type BeldexClient = {
     challenge?: { nonce: string; requestId?: string; expiresInMs?: number };
     required?: boolean;
   }): Promise<{ proof: { message: string; signature: string; address: string } | null }>;
-  sendTransactionSafe(params: {
-    to: string;
-    amount: string;
-    idempotencyKey: string;
-  }): Promise<{ status: string; txHash?: string; fee?: string }>;
+  /**
+   * The SDK's wire transport, used by Blind's own send path instead of
+   * `sendTransactionSafe()`. The SDK's version refuses any destination that does
+   * not start with "bx" — the mainnet standard prefix — which is every address
+   * on Beldex testnet. See `@/lib/beldex/wallet-send` for why Blind answers that
+   * question itself, and what it keeps from the SDK's version.
+   */
+  request(method: string, params: Record<string, unknown>): Promise<unknown>;
   resolveBns(name: string): Promise<{ address: string; verified?: boolean }>;
   on(event: string, fn: (data: unknown) => void): void;
 };

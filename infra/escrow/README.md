@@ -98,6 +98,24 @@ a VPC), or an authenticated tunnel — and set `BDX_WALLET_RPC_URL` to that. Do 
 publish the port as-is: it is a wallet that can spend escrowed funds, and its
 credentials travel in the request body, so terminate TLS in front of it.
 
+The stack ships a cloudflared quick tunnel that forwards to the signer and
+nothing else; the wallet credentials are still required on every request, so the
+URL alone moves no funds. A quick tunnel's hostname is new on every start, and
+Vercel bakes environment variables in at deploy time, so both the URL *and* a
+redeploy have to follow each restart. This publishes both:
+
+```bash
+sh infra/escrow/vercel-tunnel-url.sh                 # print the live URL
+sh infra/escrow/vercel-tunnel-url.sh --set --redeploy
+```
+
+It reads the hostname from `.tunnel/tunnel.log`, which the tunnel container
+writes through a mount — deliberately not from `docker logs`, which after a
+Colima VM restart reported nothing for the hostname the container was actually
+using. It then probes each candidate and publishes the one the wallet answers
+on, so a stale hostname can never be set. A named tunnel removes the step
+entirely; it needs a Cloudflare account with a domain on it.
+
 ## If you would rather not run this
 
 Blind Request's **direct** payout mode does not need the signer at all: the payer

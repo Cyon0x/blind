@@ -69,12 +69,24 @@ services:
   # changes on restart, so BDX_WALLET_RPC_URL has to be updated when it does —
   # the signer still requires BDX_WALLET_RPC_USER/PASSWORD on every request, so
   # the URL alone moves no funds.
+  #
+  # `--logfile` puts the announced hostname in a file on the *host*, not just in
+  # this container's stdout. That is not a convenience: after a Colima VM
+  # restart this container came back up, announced a new hostname, and
+  # `docker logs` showed nothing for it — the json-file the process had open was
+  # no longer the file on disk — so the new hostname was unreadable at exactly
+  # the moment it had to be re-published, and the app lost escrow while the
+  # signer sat there healthy. A file written through a mount lives on this
+  # machine's filesystem and survives that. `infra/escrow/vercel-tunnel-url.sh`
+  # reads it.
   tunnel:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
     depends_on:
       - signer
-    command: tunnel --no-autoupdate --url http://signer:29092
+    command: tunnel --no-autoupdate --logfile /out/tunnel.log --url http://signer:29092
+    volumes:
+      - ./.tunnel:/out
 
 volumes:
   daemon-data:
