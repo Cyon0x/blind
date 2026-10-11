@@ -109,8 +109,8 @@ export default async function DashboardOverview() {
               return (
                 <Link key={payment.id} href={`/dashboard/payments/${payment.reference}`} className="panel stack gap-3 no-underline">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="figure text-[12px] muted">{payment.reference}</span>
-                    <Iris state={IrisStateFor(payment.status)} size={22} animate={false} />
+                    <span className="figure text-[12px] muted min-w-0">{payment.reference}</span>
+                    <Iris state={IrisStateFor(payment.status)} size={22} animate={false} className="shrink-0" />
                   </div>
                   <p className="figure text-[26px]">{formatBdx(payment.amount_atomic)} BDX</p>
                   <StatePill status={payment.status} label={payment.status.replace(/_/g, " ")} />

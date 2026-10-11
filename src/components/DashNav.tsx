@@ -17,7 +17,14 @@ const LINKS = [
 
 export function DashNav({ username, unread }: { username: string | null; unread: number }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+
+  /* The menu stores the path it was opened on, not a bare boolean. The dashboard
+     layout survives a client-side navigation, so a boolean would return `true`
+     after you picked a link and leave the panel open over the page you just
+     asked for. Comparing against the current path closes it on navigation with
+     no effect and no extra render. */
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  const open = openPath === pathname;
 
   async function signOut() {
     await post("/api/auth/signout");
@@ -38,12 +45,16 @@ export function DashNav({ username, unread }: { username: string | null; unread:
       <button
         type="button"
         className="btn btn-ghost !py-2 !px-4 md:hidden"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => setOpenPath((value) => (value === pathname ? null : pathname))}
         aria-expanded={open}
+        aria-controls="dashboard-nav"
       >
         {open ? "Close" : "Menu"}
       </button>
-      <nav className={`${open ? "flex" : "hidden"} w-full flex-wrap items-center gap-2 md:flex md:w-auto`}>
+      <nav
+        id="dashboard-nav"
+        className={`${open ? "flex" : "hidden"} w-full flex-wrap items-center gap-2 md:flex md:w-auto`}
+      >
         {LINKS.map((link) => {
           const active = pathname === link.href;
           return (

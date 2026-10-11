@@ -95,8 +95,8 @@ export default async function LandingPage() {
               {[...FRAMES, ...FRAMES].map((frame, index) => (
                 <article key={`${frame.ref}-${index}`} className="panel !px-6 !py-5 min-w-[240px]">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="figure text-[13px] muted">{frame.ref}</span>
-                    <Iris state={frame.state} size={22} animate={false} />
+                    <span className="figure text-[13px] muted min-w-0">{frame.ref}</span>
+                    <Iris state={frame.state} size={22} animate={false} className="shrink-0" />
                   </div>
                   <p className="figure mt-4 text-[26px]">{frame.amount}</p>
                   <p className="faint text-[12px]">{frame.note}</p>

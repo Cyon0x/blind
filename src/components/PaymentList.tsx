@@ -25,8 +25,11 @@ export function PaymentList({
           {payments.map((payment) => (
             <Link key={payment.id} href={`/dashboard/payments/${payment.reference}`} className="panel stack gap-3 no-underline">
               <div className="flex items-center justify-between gap-3">
-                <span className="figure text-[12px] muted">{payment.reference}</span>
-                <Iris state={IrisStateFor(payment.status)} size={22} animate={false} />
+                {/* A reference is one long unbroken token. Without min-w-0 the
+                    flex item cannot shrink below it, so it grew under the
+                    aperture and the two printed on top of each other. */}
+                <span className="figure text-[12px] muted min-w-0">{payment.reference}</span>
+                <Iris state={IrisStateFor(payment.status)} size={22} animate={false} className="shrink-0" />
               </div>
               <p className="figure text-[24px]">{formatBdx(payment.amount_atomic)} BDX</p>
               <StatePill status={payment.status} label={payment.status.replace(/_/g, " ")} />

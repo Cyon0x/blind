@@ -64,10 +64,20 @@ only when someone is looking at something that is theirs.
 
 Two shapes, no exceptions:
 
-- **the blade** — an eight-sided aperture polygon:
-  `clip-path: polygon(24% 0, 76% 0, 100% 24%, 100% 76%, 76% 100%, 24% 100%, 0 76%, 0 24%)`
+- **the blade** — an eight-sided aperture polygon, with the corner cut held at
+  an absolute size rather than a fraction of the box:
+  `clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), ...)`
   Panels, cards, the amount field, the primary button.
 - **the pill** — 999px. Tags, filters, chips, secondary actions.
+
+The blade's cut is capped three ways in `globals.css`: a viewport-scaled absolute
+size (`clamp(12px, 2vw, 28px)`, the soft variant smaller), a share of the box
+(22% / 20%, so a short bar cannot pinch into an hourglass) and the element's own
+padding. A percentage-only cut is the one thing that must never come back: at
+24% of a 390px panel it reached ~75px in from the edge and clipped the first
+characters off every line of text inside. **A blade is decoration; the type on
+top of it is not.** Any new use has to keep the cut clear of the content box —
+cuts are bounded by the padding tokens for exactly that reason.
 
 Rects-with-4px-radius appear nowhere. Edges that are not blades carry **sprocket
 notches** (a repeating mask), read as film perforations, used to mark sections
